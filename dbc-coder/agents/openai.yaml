@@ -1,0 +1,4 @@
+interface:
+  display_name: "DbC Coder"
+  short_description: "Write code and tests from explicit contracts"
+  default_prompt: "Use $dbc-coder to implement this change from explicit preconditions, postconditions, and invariants."
