@@ -9,6 +9,8 @@ description: "Implement or refactor code and tests with Design by Contract (DbC)
 
 Treat every change as a contract. Make preconditions, postconditions, invariants, and failure semantics explicit before editing code, then write tests that prove the contract instead of merely mirroring the implementation.
 
+Stay abstract while the user is still discussing architecture, responsibilities, or module boundaries. Do not show the full contract template until the conversation reaches a concrete module, API, function group, or file-level implementation step.
+
 ## Workflow
 
 1. Extract the contract before writing code.
@@ -18,9 +20,15 @@ Treat every change as a contract. Make preconditions, postconditions, invariants
 5. Write tests mapped directly to the contract.
 6. Run focused verification, then broader tests when the change touches shared behavior.
 
+## Design Boundary
+
+- During high-level design, discuss responsibilities, module boundaries, data flow, and tradeoffs without asking the user to review a full contract template.
+- Switch to contract mode only when the work is concrete enough to name the module, API surface, or implementation unit that will be edited next.
+- At that handoff point, summarize the contract to the user and confirm it before writing module-level code or tests.
+
 ## Contract Template
 
-Use this compact template in your notes or response before coding:
+Use this compact template only when the task has reached module-level implementation or a similarly concrete editing step:
 
 ```text
 Subject:
@@ -34,7 +42,7 @@ Failures:
 - ...
 ```
 
-If the request is underspecified, infer the narrowest contract that matches the existing codebase and state the assumption in the final response.
+If the request is underspecified, infer the narrowest contract that matches the existing codebase and state the assumption in the final response. If the work is still architectural, postpone this template and keep the discussion at the design level.
 
 ## Contract Mapping
 
@@ -73,7 +81,8 @@ When the project convention allows it, assert both that a failure occurs and why
 
 When using this skill, produce:
 
-1. A short contract summary.
-2. The implementation or refactor.
-3. Tests mapped to the contract.
-4. A brief verification note with commands run and any remaining assumptions.
+1. For high-level design: a short design summary, open decisions, and the proposed module boundary.
+2. For module-level implementation: a short contract summary confirmed with the user.
+3. The implementation or refactor.
+4. Tests mapped to the contract.
+5. A brief verification note with commands run and any remaining assumptions.
