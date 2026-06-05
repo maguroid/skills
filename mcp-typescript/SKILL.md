@@ -44,8 +44,13 @@ rg -n "tools/list|tools/call|resources/read|prompts/get|initialize|capabilities|
    - stdio for local process-spawned servers.
    - Streamable HTTP for remote or multi-client servers.
    - Legacy SSE only when maintaining compatibility with older servers.
-6. Implement with explicit schemas, typed outputs, useful descriptions, and capability declarations.
-7. Validate through typecheck/tests and, for servers, an MCP Inspector or client smoke test when available.
+6. For server-side HTTP implementations, run a server framework selection check before coding:
+   - Present viable framework/runtime options and their tradeoffs.
+   - State the recommended choice.
+   - Get user confirmation before implementing the framework choice.
+   - If the user has already explicitly chosen the framework in the current turn, treat that as confirmation and record the choice in your work notes or plan.
+7. Implement with explicit schemas, typed outputs, useful descriptions, and capability declarations.
+8. Validate through typecheck/tests and, for servers, an MCP Inspector or client smoke test when available.
 
 ## Implementation Principles
 
