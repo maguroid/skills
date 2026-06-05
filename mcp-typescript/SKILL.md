@@ -1,6 +1,6 @@
 ---
 name: mcp-typescript
-description: Build, modify, debug, review, or update local knowledge for Model Context Protocol (MCP) servers and MCP clients in TypeScript. Use whenever Codex is asked to implement an MCP server, MCP client, MCP transport, MCP tool/resource/prompt, MCP capability, MCP authentication flow, MCP SDK integration, tests for MCP behavior, or to refresh/update/latest-ize MCP specification or TypeScript SDK information. This skill is TypeScript-only and should be used by default for any MCP server construction request.
+description: Build, modify, debug, review, or update local knowledge for Model Context Protocol (MCP) servers and MCP clients in TypeScript. Use whenever an agent is asked to implement an MCP server, MCP client, MCP transport, MCP tool/resource/prompt, MCP capability, MCP authentication flow, MCP SDK integration, tests for MCP behavior, or to refresh/update/latest-ize MCP specification or TypeScript SDK information. This skill is TypeScript-only and should be used by default for any MCP server construction request.
 ---
 
 # MCP TypeScript

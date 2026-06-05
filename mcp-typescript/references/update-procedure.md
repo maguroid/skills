@@ -29,10 +29,10 @@ For `modelcontextprotocol/typescript-sdk`, choose the latest stable semver relea
 Before replacing bundled repositories, inspect the selected tags and summarize risks:
 
 ```sh
-git -C /Users/maguroid/ghq/github.com/modelcontextprotocol/modelcontextprotocol fetch --tags --force
-git -C /Users/maguroid/ghq/github.com/modelcontextprotocol/typescript-sdk fetch --tags --force
-git -C /Users/maguroid/ghq/github.com/modelcontextprotocol/modelcontextprotocol checkout <spec-tag>
-git -C /Users/maguroid/ghq/github.com/modelcontextprotocol/typescript-sdk checkout <sdk-tag>
+git -C "$HOME/ghq/github.com/modelcontextprotocol/modelcontextprotocol" fetch --tags --force
+git -C "$HOME/ghq/github.com/modelcontextprotocol/typescript-sdk" fetch --tags --force
+git -C "$HOME/ghq/github.com/modelcontextprotocol/modelcontextprotocol" checkout <spec-tag>
+git -C "$HOME/ghq/github.com/modelcontextprotocol/typescript-sdk" checkout <sdk-tag>
 ```
 
 Check:
@@ -53,12 +53,12 @@ After selecting stable tags and reviewing risk, copy the checked-out ghq reposit
 
 ```sh
 rsync -a --delete --exclude .git \
-  /Users/maguroid/ghq/github.com/modelcontextprotocol/modelcontextprotocol/ \
-  /Users/maguroid/.codex/skills/mcp-typescript/references/repos/modelcontextprotocol/
+  "$HOME/ghq/github.com/modelcontextprotocol/modelcontextprotocol/" \
+  "$HOME/ghq/github.com/maguroid/skills/mcp-typescript/references/repos/modelcontextprotocol/"
 
 rsync -a --delete --exclude .git \
-  /Users/maguroid/ghq/github.com/modelcontextprotocol/typescript-sdk/ \
-  /Users/maguroid/.codex/skills/mcp-typescript/references/repos/typescript-sdk/
+  "$HOME/ghq/github.com/modelcontextprotocol/typescript-sdk/" \
+  "$HOME/ghq/github.com/maguroid/skills/mcp-typescript/references/repos/typescript-sdk/"
 ```
 
 ## Update Skill References
@@ -77,15 +77,11 @@ Update `SKILL.md` only when trigger behavior, workflow, or resource navigation c
 
 ## Validate
 
-Run the skill validator:
+Run the active agent's skill validator for `$HOME/.agents/skills/mcp-typescript`. If that agent provides a system skill authoring or validation workflow, use that workflow instead of hard-coding another agent's validator path.
+
+Then confirm:
 
 ```sh
-python3 /Users/maguroid/.codex/skills/.system/skill-creator/scripts/quick_validate.py /Users/maguroid/.codex/skills/mcp-typescript
-```
-
-If PyYAML is not installed in the active Python, use a Python environment that has it or provide an equivalent local shim for this validator only. Then confirm:
-
-```sh
-rg -n "TO[D]O|\\[TO[D]O|Use [-]typescript" /Users/maguroid/.codex/skills/mcp-typescript/SKILL.md /Users/maguroid/.codex/skills/mcp-typescript/references/*.md /Users/maguroid/.codex/skills/mcp-typescript/agents/openai.yaml
-find /Users/maguroid/.codex/skills/mcp-typescript/references/repos -name .git -type d
+rg -n "TO[D]O|\\[TO[D]O|Use [-]typescript" "$HOME/ghq/github.com/maguroid/skills/mcp-typescript/SKILL.md" "$HOME/ghq/github.com/maguroid/skills/mcp-typescript/references/"*.md "$HOME/ghq/github.com/maguroid/skills/mcp-typescript/agents/openai.yaml"
+find "$HOME/ghq/github.com/maguroid/skills/mcp-typescript/references/repos" -name .git -type d
 ```

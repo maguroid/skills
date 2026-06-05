@@ -13,7 +13,7 @@ Keep access narrow:
 - Enable `[features.network_proxy] enabled = true`.
 - Add only the requested domain to `features.network_proxy.domains` as an `allow` rule.
 - Preserve existing allowed or denied domains; merge new entries instead of replacing the table.
-- Validate the TOML after editing, for example with `python3 -c 'import tomllib; tomllib.load(open("/Users/maguroid/.codex/config.toml", "rb"))'`.
+- Validate the TOML after editing, for example with `python3 -c 'import pathlib, tomllib; tomllib.load(open(pathlib.Path.home() / ".codex/config.toml", "rb"))'`.
 
 Example:
 

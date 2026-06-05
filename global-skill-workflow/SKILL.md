@@ -1,22 +1,24 @@
 ---
 name: global-skill-workflow
-description: Create, update, migrate, or organize global Codex skills for maguroid. Use when Codex is asked to make a global skill, install a personal/global skill, update an existing global skill, move skills between discovery directories, or manage symlinks for skill discovery. This skill defines the canonical location `/Users/maguroid/ghq/github.com/maguroid/skills` and requires discoverable skills to be symlinked from `/Users/maguroid/.agents/skills`.
+description: Create, update, migrate, or organize global skills. Use when an agent is asked to make a global skill, install a personal/global skill, update an existing global skill, move skills between discovery directories, or manage symlinks for skill discovery. This skill uses `$HOME/ghq/github.com/maguroid/skills` as the canonical repository and symlinks from `$HOME/.agents/skills` and `$HOME/.claude/skills`.
 ---
 
 # Global Skill Workflow
 
 ## Core Rule
 
-Use `/Users/maguroid/ghq/github.com/maguroid/skills` as the canonical source for user-created global skills. Make `/Users/maguroid/.agents/skills/<skill-name>` a symlink to the canonical skill directory. Do not create or maintain user-created skill symlinks in `/Users/maguroid/.codex/skills`; Codex discovers global skills from `/Users/maguroid/.agents/skills`.
+Use `$HOME/ghq/github.com/maguroid/skills` as the canonical source for user-created global skills. Make both `$HOME/.agents/skills/<skill-name>` and `$HOME/.claude/skills/<skill-name>` symlinks to each canonical skill directory.
 
-Use this skill with `skill-creator` when authoring or updating the skill content. This skill controls placement, linking, migration, and validation.
+Use the active agent's system skill authoring and validation workflow when creating or updating skill content. This skill controls placement, linking, migration, and validation targets.
 
 ## Paths
 
-- Canonical repo: `/Users/maguroid/ghq/github.com/maguroid/skills`
-- Discovery directory: `/Users/maguroid/.agents/skills`
-- Do not use for user-created global skills: `/Users/maguroid/.codex/skills`
-- Do not modify system skills: `/Users/maguroid/.codex/skills/.system`
+- Canonical repo: `$HOME/ghq/github.com/maguroid/skills`
+- Active agent discovery directory: `$HOME/.agents/skills`
+- Claude discovery directory: `$HOME/.claude/skills`
+- Skill authoring and validation tools: use the active agent's system skills or built-in skill tooling.
+
+Use `$HOME` rather than an OS-user-specific absolute home path in skill instructions. Do not use a non-hidden `$HOME/claude/skills` directory unless the user explicitly configures or requests that alternate location.
 
 ## New Global Skill Workflow
 
@@ -24,48 +26,35 @@ Use this skill with `skill-creator` when authoring or updating the skill content
 2. Confirm the canonical path does not already exist:
 
 ```sh
-test -e /Users/maguroid/ghq/github.com/maguroid/skills/<skill-name>
+test -e "$HOME/ghq/github.com/maguroid/skills/<skill-name>"
 ```
 
-3. Initialize the skill in the canonical repo:
-
-```sh
-python3 /Users/maguroid/.codex/skills/.system/skill-creator/scripts/init_skill.py <skill-name> \
-  --path /Users/maguroid/ghq/github.com/maguroid/skills \
-  --interface display_name="..." \
-  --interface short_description="..." \
-  --interface default_prompt='Use $<skill-name> ...'
-```
+3. Initialize the skill in the canonical repo using the active agent's system skill authoring workflow. Target `$HOME/ghq/github.com/maguroid/skills` as the output directory and include agent-specific metadata only when that agent requires it.
 
 4. Edit only files under the canonical skill directory.
-5. Create the discovery symlink:
+5. Create discovery symlinks:
 
 ```sh
-ln -s /Users/maguroid/ghq/github.com/maguroid/skills/<skill-name> \
-  /Users/maguroid/.agents/skills/<skill-name>
+mkdir -p "$HOME/.agents/skills" "$HOME/.claude/skills"
+ln -s "$HOME/ghq/github.com/maguroid/skills/<skill-name>" "$HOME/.agents/skills/<skill-name>"
+ln -s "$HOME/ghq/github.com/maguroid/skills/<skill-name>" "$HOME/.claude/skills/<skill-name>"
 ```
 
-6. Validate the symlinked skill:
-
-```sh
-python3 /Users/maguroid/.codex/skills/.system/skill-creator/scripts/quick_validate.py \
-  /Users/maguroid/.agents/skills/<skill-name>
-```
-
-If the active Python lacks PyYAML, use another Python environment with PyYAML or a local shim only for the validator.
+6. Validate the symlinked skill using the active agent's system validation workflow. Validate through `$HOME/.agents/skills/<skill-name>` and, when supported, also check `$HOME/.claude/skills/<skill-name>`.
 
 ## Updating An Existing Global Skill
 
 1. Resolve the canonical path:
 
 ```sh
-readlink /Users/maguroid/.agents/skills/<skill-name>
+readlink "$HOME/.agents/skills/<skill-name>"
 ```
 
-2. If it points to `/Users/maguroid/ghq/github.com/maguroid/skills/<skill-name>`, edit the canonical directory.
-3. If it is a real directory in `/Users/maguroid/.agents/skills`, migrate it to the canonical repo first.
+2. If it points to `$HOME/ghq/github.com/maguroid/skills/<skill-name>`, edit the canonical directory.
+3. If it is a real directory in `$HOME/.agents/skills`, migrate it to the canonical repo first.
 4. If it is a broken symlink, inspect before replacing it.
-5. Validate through `/Users/maguroid/.agents/skills/<skill-name>` after edits.
+5. Ensure `$HOME/.claude/skills/<skill-name>` also points to the canonical directory.
+6. Validate through `$HOME/.agents/skills/<skill-name>` after edits.
 
 ## Migration Workflow
 
@@ -73,19 +62,19 @@ When migrating an existing user-created global skill:
 
 1. Copy the real skill directory into the canonical repo with `rsync -a`.
 2. Confirm the canonical copy has `SKILL.md`.
-3. Move the original directory to a temporary backup, such as `/private/tmp/maguroid-skills-migration/<skill-name>`.
-4. Create `/Users/maguroid/.agents/skills/<skill-name>` as a symlink to the canonical copy.
+3. Move the original directory to a temporary backup, such as `/private/tmp/skills-migration/<skill-name>`.
+4. Create `$HOME/.agents/skills/<skill-name>` and `$HOME/.claude/skills/<skill-name>` as symlinks to the canonical copy.
 5. Validate the symlinked skill.
 6. Leave unrelated existing skills and symlinks untouched.
 
-Do not migrate `/Users/maguroid/.codex/skills/.system`.
+Do not migrate system skills.
 
 ## Git Hygiene
 
 Before and after changes, check:
 
 ```sh
-git -C /Users/maguroid/ghq/github.com/maguroid/skills status --short --branch
+git -C "$HOME/ghq/github.com/maguroid/skills" status --short --branch
 ```
 
 Do not revert pre-existing changes in the canonical repo. Report unrelated dirty state separately from the skill you created or updated.
@@ -93,8 +82,8 @@ Do not revert pre-existing changes in the canonical repo. Report unrelated dirty
 ## Validation Checklist
 
 - `SKILL.md` exists in the canonical skill directory.
-- `/Users/maguroid/.agents/skills/<skill-name>` is a symlink to the canonical directory.
-- No user-created symlink was added under `/Users/maguroid/.codex/skills`.
-- `quick_validate.py` passes for the symlinked skill.
-- `agents/openai.yaml` uses a quoted `default_prompt` containing `$<skill-name>` when present.
-- No placeholder text remains in authored skill files.
+- `$HOME/.agents/skills/<skill-name>` is a symlink to the canonical directory.
+- `$HOME/.claude/skills/<skill-name>` is a symlink to the canonical directory.
+- The active agent's skill validator passes for the symlinked skill.
+- Agent-specific metadata files are present and valid only when required by that agent.
+- No machine-specific absolute home paths remain in authored skill files; use `$HOME`-relative paths for discovery and canonical directories.
