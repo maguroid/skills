@@ -1,0 +1,4 @@
+interface:
+  display_name: "MCP TypeScript"
+  short_description: "Build MCP servers and clients in TypeScript"
+  default_prompt: "Use $mcp-typescript to build a TypeScript MCP server with tools, resources, prompts, and the appropriate transport."

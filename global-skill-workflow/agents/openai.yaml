@@ -1,0 +1,4 @@
+interface:
+  display_name: "Global Skill Workflow"
+  short_description: "Create global skills from the canonical repo"
+  default_prompt: "Use $global-skill-workflow to create or update a global Codex skill in the canonical maguroid skills repo."
