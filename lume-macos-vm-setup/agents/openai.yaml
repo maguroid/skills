@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lume macOS VM Setup"
+  short_description: "Build and finish Lume macOS VMs reliably"
+  default_prompt: "Use $lume-macos-vm-setup to create a macOS VM named default with SSH enabled."
