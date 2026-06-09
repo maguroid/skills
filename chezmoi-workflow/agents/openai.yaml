@@ -1,0 +1,4 @@
+interface:
+  display_name: "Chezmoi Workflow"
+  short_description: "Manage dotfiles with explicit chezmoi workflows."
+  default_prompt: "Use chezmoi to add, edit, remove, diff, and apply dotfile changes safely."
