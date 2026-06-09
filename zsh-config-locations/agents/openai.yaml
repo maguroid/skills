@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zsh Config Locations"
+  short_description: "Find this user zsh config layout"
+  default_prompt: "Use $zsh-config-locations to inspect where this environment keeps zsh configuration."

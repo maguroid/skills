@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zeno Configuration"
+  short_description: "Update this user zeno snippets safely"
+  default_prompt: "Use $zeno-configuration to add or verify a Zeno snippet in this environment."
