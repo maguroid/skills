@@ -1,0 +1,4 @@
+interface:
+  display_name: "X Article Reader"
+  short_description: "Read X Article bodies through xurl"
+  default_prompt: "Use $xurl-article-reader to fetch the full body of any X Articles referenced by posts before summarizing them."
