@@ -1,6 +1,6 @@
 ---
 name: global-skill-workflow
-description: Create, update, migrate, or organize global skills. Use when an agent is asked to make a global skill, install a personal/global skill, update an existing global skill, move skills between discovery directories, or manage symlinks for skill discovery. This skill uses `$HOME/ghq/github.com/maguroid/skills` as the canonical repository and symlinks from `$HOME/.agents/skills` and `$HOME/.claude/skills`.
+description: Create, update, migrate, sync, or organize global skills. Use when an agent is asked to make a global skill, install a personal/global skill, update an existing global skill, sync skills from the remote repository to the local machine, move skills between discovery directories, or manage symlinks for skill discovery. This skill uses `$HOME/ghq/github.com/maguroid/skills` as the canonical repository and symlinks from `$HOME/.agents/skills` and `$HOME/.claude/skills`.
 ---
 
 # Global Skill Workflow
@@ -68,6 +68,53 @@ When migrating an existing user-created global skill:
 6. Leave unrelated existing skills and symlinks untouched.
 
 Do not migrate system skills.
+
+## Sync Workflow
+
+Use this when the user asks to sync skills from the remote repository to this machine, e.g. after setting up a new machine or when another machine pushed new skills. The goal: pull the latest canonical repo from `origin`, then ensure every canonical skill is symlinked into both discovery directories.
+
+Scope is the canonical repo only. Do not touch discovery entries that resolve to other repositories.
+
+1. Check for uncommitted changes before pulling:
+
+```sh
+git -C "$HOME/ghq/github.com/maguroid/skills" status --short --branch
+```
+
+If the working tree is dirty, report it and ask before pulling. Do not stash or discard the user's changes.
+
+2. Pull from `origin` explicitly (the repo also has a `lima` remote; do not rely on the implicit upstream):
+
+```sh
+git -C "$HOME/ghq/github.com/maguroid/skills" pull origin "$(git -C "$HOME/ghq/github.com/maguroid/skills" branch --show-current)"
+```
+
+3. Enumerate canonical skills: every top-level directory in the canonical repo that contains a `SKILL.md`. Skip `.git` and any directory without `SKILL.md`.
+
+4. For each canonical skill `<name>`, reconcile both `$HOME/.agents/skills/<name>` and `$HOME/.claude/skills/<name>`:
+   - Missing: create the symlink to the canonical directory.
+   - Symlink already pointing at the canonical directory: leave it.
+   - Broken symlink whose intended target is the canonical directory: recreate it.
+   - A real directory, or a symlink resolving to a different repository: do not overwrite. Report it as a conflict and leave it untouched.
+
+```sh
+mkdir -p "$HOME/.agents/skills" "$HOME/.claude/skills"
+canonical="$HOME/ghq/github.com/maguroid/skills/<name>"
+for dir in "$HOME/.agents/skills" "$HOME/.claude/skills"; do
+  link="$dir/<name>"
+  if [ -L "$link" ] && [ "$(readlink "$link")" = "$canonical" ]; then
+    continue                      # already correct
+  elif [ -e "$link" ] || { [ -L "$link" ] && [ "$(readlink "$link")" != "$canonical" ]; }; then
+    echo "conflict: $link (left untouched)"   # real dir or foreign symlink
+  else
+    ln -sfn "$canonical" "$link"  # missing or broken canonical-target link
+  fi
+done
+```
+
+5. Report a summary: newly linked, already correct, repaired, and conflicts skipped. Never silently overwrite a conflict.
+
+6. Validate a sample of the synced skills through `$HOME/.agents/skills/<name>` using the active agent's validation workflow.
 
 ## Git Hygiene
 
