@@ -44,7 +44,8 @@ description: Rewrite text or text/markdown files into polished, natural Japanese
 - 既存ファイルは**上書きしない**（明示パスを渡して回避）。
 - 成果物パスは stderr に `wrote: <path>` と出る。stdout は汚さない。
 - 環境変数で上書き可: `LLMX_PROFILE`（既定 `plamo`）, `LLMX_MODEL`（既定 `plamo-3.0-prime`）,
-  `LLMX_MAXTOK`（既定 `20000`）。
+  `LLMX_REASONING`（既定 `medium`。`none` で推論オフ）。`max_tokens` は**意図的に指定しない**
+  （理由は下記の落とし穴を参照）。
 
 ### インラインのテキスト／メモを清書する
 
@@ -62,7 +63,7 @@ printf '%s' "$user_text" > draft.md
 ヘルパーは実質これを実行している。動作を調整したいときはこの形で直接呼んでよい。
 
 ```sh
-llmx -p plamo -m plamo-3.0-prime --max-tokens 20000 --stream \
+llmx -p plamo -m plamo-3.0-prime --stream --reasoning-effort medium \
   --system "<清書用システムプロンプト>" \
   "この方針に従って次の原稿を清書し、本文のみを出力してください。" \
   < input.md > output.md
@@ -87,16 +88,21 @@ llmx -p plamo -m plamo-3.0-prime --max-tokens 20000 --stream \
   長文では応答ヘッダが届く前に `llmx` のHTTPクライアントが諦める（exit 4「timeout awaiting response
   headers」）。ネットワーク遮断と紛らわしいが原因は別。**`--stream` を付ければ回避できる**（`rewrite.sh`
   は既定で付与済み）。
-- **`reasoning_effort` は llmx から設定できない**（PLaMo 既定は `none`）。清書用途では推論不要なので
-  実用上問題ない。腰を据えた推敲が欲しい等で `medium` が必要な場合は API を直接叩く必要がある。
+- **`reasoning_effort` は出力予算（max_tokens）を食う。** `--reasoning-effort`（`rewrite.sh` は既定
+  `medium`）で推論を効かせると、推論トークンも `max_tokens` の枠に算入される。固定上限を切ると推論が
+  枠を食い潰し、本文が空のまま `finish_reason=length` で打ち切られることがある（2行の入力でも推論だけで
+  120トークン超を消費した実測あり）。**対策は `max_tokens` を指定しないこと**。サーバ既定に任せれば推論＋
+  本文が最後まで完了する（`rewrite.sh` は `--max-tokens` を付けない）。推論を切りたいときは
+  `LLMX_REASONING=none`。
 
 ## 長い原稿・途中で切れたとき
 
-PLaMo 3.0 Prime の最大出力は **20,000 トークン**。それを超える長文は末尾が切れることがある。
-疑わしいときは `--json` で `finish_reason` を確認する（`length` なら切れている）:
+PLaMo 3.0 Prime の最大出力は **20,000 トークン**。`max_tokens` を指定しなければサーバ既定で
+ここまで使えるが、それを超える長文は末尾が切れることがある。疑わしいときは `--json` で
+`finish_reason` を確認する（`length` なら切れている）:
 
 ```sh
-out="$(llmx -p plamo -m plamo-3.0-prime --max-tokens 20000 --json \
+out="$(llmx -p plamo -m plamo-3.0-prime --reasoning-effort medium --json \
   --system "<清書用システムプロンプト>" \
   "この方針に従って次の原稿を清書し、本文のみを出力してください。" < input.md)"
 printf '%s' "$out" | jq -r '.finish_reason'   # stop なら完了 / length なら途中

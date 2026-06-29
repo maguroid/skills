@@ -15,9 +15,14 @@
 #                   The script refuses to overwrite an existing file.
 #
 # Env overrides:
-#   LLMX_PROFILE   (default: plamo)   llmx credentials profile to use.
-#   LLMX_MODEL     (default: plamo-3.0-prime)
-#   LLMX_MAXTOK    (default: 20000)   plamo-3.0-prime max output tokens.
+#   LLMX_PROFILE    (default: plamo)   llmx credentials profile to use.
+#   LLMX_MODEL      (default: plamo-3.0-prime)
+#   LLMX_REASONING  (default: medium)  reasoning_effort for the polish pass.
+#                                      Set to "none" to disable.
+#
+# max_tokens is intentionally NOT set: the API's cap counts reasoning tokens
+# too, so a fixed cap would let reasoning starve the visible output (and
+# truncate). Leaving it unset lets reasoning + the full rewrite complete.
 #
 # Exit codes follow llmx where possible: 2 = usage/local error, others bubble
 # up from llmx (1 API, 3 config, 4 network, 130 interrupted).
@@ -25,7 +30,7 @@ set -euo pipefail
 
 PROFILE="${LLMX_PROFILE:-plamo}"
 MODEL="${LLMX_MODEL:-plamo-3.0-prime}"
-MAXTOK="${LLMX_MAXTOK:-20000}"
+REASONING="${LLMX_REASONING:-medium}"
 
 in="${1:-}"
 if [ -z "$in" ]; then
@@ -97,7 +102,11 @@ EOF
 # response headers"). Streaming makes the headers/first tokens arrive
 # immediately, avoiding the timeout. stdout still receives only the response
 # body, so the redirect to "$out" stays clean.
-llmx -p "$PROFILE" -m "$MODEL" --max-tokens "$MAXTOK" --stream --system "$SYS" \
+#
+# --reasoning-effort defaults to "medium" so the polish pass gets a deliberate
+# review rather than PLaMo's "none" default; override with LLMX_REASONING.
+llmx -p "$PROFILE" -m "$MODEL" --stream \
+  --reasoning-effort "$REASONING" --system "$SYS" \
   "この方針に従って次の原稿を清書し、本文のみを出力してください。" \
   < "$in" > "$out"
 
