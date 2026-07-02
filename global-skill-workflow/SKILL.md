@@ -1,6 +1,6 @@
 ---
 name: global-skill-workflow
-description: Create, update, migrate, sync, or organize global skills. Use when an agent is asked to make a global skill, install a personal/global skill, update an existing global skill, sync skills from the remote repository to the local machine, move skills between discovery directories, or manage symlinks for skill discovery. Canonical repos are `$HOME/ghq/github.com/maguroid/skills` (personal, default), `$HOME/ghq/github.com/pao-tech-labs/hashigodaka-skills` (company), and `$HOME/ghq/github.com/maguroid/cc-skills` (Claude Code-only); discovery symlinks live in `$HOME/.agents/skills` and `$HOME/.claude/skills`.
+description: Create, update, migrate, sync, or organize global skills. Use when an agent is asked to make a global skill, install a personal/global skill, update an existing global skill, sync skills from the remote repository to the local machine, move skills between discovery directories, or manage symlinks for skill discovery. Canonical repos are `$HOME/ghq/github.com/maguroid/skills` (personal, default) and `$HOME/ghq/github.com/maguroid/cc-skills` (Claude Code-only), plus any private repos registered in the local registry `$HOME/.agents/skills-repos.local.md`; discovery symlinks live in `$HOME/.agents/skills` and `$HOME/.claude/skills`.
 ---
 
 # Global Skill Workflow
@@ -13,22 +13,22 @@ Use the active agent's system skill authoring and validation workflow when creat
 
 ## Choosing the Canonical Repo
 
-Three canonical repos exist. Choose by audience and harness before creating or migrating a skill:
+Two public canonical repos exist, plus optional private repos in a local registry. Choose by audience and harness before creating or migrating a skill:
 
-- **Personal skills** (the user's own tooling, machine setup, personal workflows; agent-neutral): `$HOME/ghq/github.com/maguroid/skills` (default).
-- **Company skills** (Hashigodaka team-shared workflows, e.g. `hashigodaka-wiki`): `$HOME/ghq/github.com/pao-tech-labs/hashigodaka-skills` (GitHub: `pao-tech-labs/hashigodaka-skills`, private).
-- **Claude Code-only skills** (skills that only make sense inside the Claude Code harness — e.g. they orchestrate Claude Code-specific delegation or tooling, like `codex-delegate`): `$HOME/ghq/github.com/maguroid/cc-skills` (GitHub: `maguroid/cc-skills`).
+- **Personal skills** (the user's own tooling, machine setup, personal workflows; agent-neutral): `$HOME/ghq/github.com/maguroid/skills` (default; public).
+- **Claude Code-only skills** (skills that only make sense inside the Claude Code harness — e.g. they orchestrate Claude Code-specific delegation or tooling, like `codex-delegate`): `$HOME/ghq/github.com/maguroid/cc-skills` (GitHub: `maguroid/cc-skills`; public).
+- **Private repos (team/company skills etc.)**: registered in the machine-local registry `$HOME/.agents/skills-repos.local.md`. **Read that file before choosing a repo** — if the skill's audience matches an entry there, use that repo. This SKILL.md lives in a public repo, so private repo names, org names, and audience details belong ONLY in the registry file, never here. When creating or updating a skill in a private repo, keep following this workflow's steps with that repo's path and the symlink scheme its registry entry declares.
 
 Symlink scheme by repo:
 
-- Personal and company skills link into **both** `$HOME/.agents/skills` and `$HOME/.claude/skills`.
+- Personal skills — and private-registry repos unless their entry says otherwise — link into **both** `$HOME/.agents/skills` and `$HOME/.claude/skills`.
 - Claude Code-only skills (cc-skills) link into **`$HOME/.claude/skills` only** — never into `$HOME/.agents/skills`, which is the agent-neutral discovery directory read by other harnesses (codex etc.).
 
-The sync workflow below applies to the personal repo; for the company and cc-skills repos, sync is a plain `git pull` (symlinks resolve to the pulled working tree) plus creating symlinks for any newly added skills (both directories for company, `$HOME/.claude/skills` only for cc-skills). When a skill's audience or harness scope changes, move it between repos: copy to the target repo, commit both repos, and repoint the discovery symlinks with `ln -sfn` (when a skill moves out of cc-skills to an agent-neutral repo, add the missing `$HOME/.agents/skills` link; when it moves into cc-skills, remove that link).
+The sync workflow below applies to the personal repo; for cc-skills and private-registry repos, sync is a plain `git pull` (symlinks resolve to the pulled working tree) plus creating symlinks for any newly added skills, per each repo's symlink scheme. When a skill's audience or harness scope changes, move it between repos: copy to the target repo, commit both repos, and repoint the discovery symlinks with `ln -sfn` (when a skill moves out of cc-skills to an agent-neutral repo, add the missing `$HOME/.agents/skills` link; when it moves into cc-skills, remove that link).
 
 ## Paths
 
-- Canonical repos: `$HOME/ghq/github.com/maguroid/skills` (personal, default) / `$HOME/ghq/github.com/pao-tech-labs/hashigodaka-skills` (company) / `$HOME/ghq/github.com/maguroid/cc-skills` (Claude Code-only)
+- Canonical repos: `$HOME/ghq/github.com/maguroid/skills` (personal, default) / `$HOME/ghq/github.com/maguroid/cc-skills` (Claude Code-only) / private repos per `$HOME/.agents/skills-repos.local.md`
 - Active agent discovery directory (agent-neutral): `$HOME/.agents/skills`
 - Claude discovery directory: `$HOME/.claude/skills`
 - Skill authoring and validation tools: use the active agent's system skills or built-in skill tooling.
@@ -47,7 +47,7 @@ test -e "<chosen-repo>/<skill-name>"
 3. Initialize the skill in the chosen canonical repo using the active agent's system skill authoring workflow. Target the chosen repo as the output directory and include agent-specific metadata only when that agent requires it.
 
 4. Edit only files under the canonical skill directory.
-5. Create discovery symlinks. For personal and company skills:
+5. Create discovery symlinks. For agent-neutral skills (personal repo, and private-registry repos unless their entry says otherwise):
 
 ```sh
 mkdir -p "$HOME/.agents/skills" "$HOME/.claude/skills"
@@ -74,10 +74,10 @@ readlink "$HOME/.agents/skills/<skill-name>"
 
 If there is no entry in `$HOME/.agents/skills`, also check `readlink "$HOME/.claude/skills/<skill-name>"` — a skill that resolves only from there into the cc-skills repo is a Claude Code-only skill, which is a valid state, not a defect.
 
-2. If it points into any of the three canonical repos (`maguroid/skills`, `pao-tech-labs/hashigodaka-skills`, `maguroid/cc-skills`), edit that canonical directory and commit & push in that repo.
+2. If it points into a canonical repo (`maguroid/skills`, `maguroid/cc-skills`, or a repo listed in `$HOME/.agents/skills-repos.local.md`), edit that canonical directory and commit & push in that repo.
 3. If it is a real directory in a discovery directory, migrate it to the appropriate canonical repo first.
 4. If it is a broken symlink, inspect before replacing it.
-5. Ensure the discovery links match the repo's scheme: both directories for personal/company skills; `$HOME/.claude/skills` only for cc-skills (remove a stray `$HOME/.agents/skills` link pointing into cc-skills).
+5. Ensure the discovery links match the repo's scheme: both directories for agent-neutral repos; `$HOME/.claude/skills` only for cc-skills (remove a stray `$HOME/.agents/skills` link pointing into cc-skills).
 6. Validate through `$HOME/.agents/skills/<skill-name>` after edits (`$HOME/.claude/skills/<skill-name>` for cc-skills).
 
 ## Migration Workflow
@@ -97,7 +97,7 @@ Do not migrate system skills.
 
 Use this when the user asks to sync skills from the remote repository to this machine, e.g. after setting up a new machine or when another machine pushed new skills. The goal: pull the latest canonical repo from `origin`, then ensure every canonical skill is symlinked into both discovery directories.
 
-This detailed procedure targets the **personal** repo. For the company and cc-skills repos, apply the same pattern with their path and symlink scheme (cc-skills reconciles `$HOME/.claude/skills` only; a full sync covers all three repos).
+This detailed procedure targets the **personal** repo. For cc-skills and private-registry repos, apply the same pattern with their path and symlink scheme (cc-skills reconciles `$HOME/.claude/skills` only; a full sync covers the two public repos plus every registry entry).
 
 Scope is the canonical repo being synced. Do not touch discovery entries that resolve to other repositories.
 
