@@ -80,6 +80,20 @@ const { session } = await createAgentSession({ customTools: [myTool] });
 渡さない 1 回呼び出しにする。プロンプトインジェクション対策にもなる（ツールが
 なければページ内の指示で行動する経路がない）。出力 JSON は自前でスキーマ検証する。
 
+実戦検証済みの構成（v0.80.3、bukken-watch 実装で確認）:
+
+- `createAgentSession` に **`noTools: "all"`** を渡す（型は `"all" | "builtin"`、
+  `dist/core/sdk.d.ts` に実在）＋ `customTools: []`。これで全ツールが無効になる
+- さらに独自 `ResourceLoader` を渡して extensions / skills / prompts / agents files を
+  空返しにすると、ローカル設定の混入経路も断てる（ホストの `~/.pi` の拡張を拾わない）
+- `SessionManager.inMemory(cwd)` と `SettingsManager.inMemory(partial)` で
+  ファイルシステムに痕跡を残さない組み込みができる
+- 出力の JSON パースは厳密に（前後の説明文やコードフェンスを許容すると LLM 出力の
+  異常検知が遅れる）。zod なら `.strict()` を使い、数値は現実的なレンジも検証する
+- 後始末は `unsubscribe()` と `session.dispose()` を finally で。**ただしそれでも
+  プロセスが exit しないことがあるため、CLI の終端で明示的に `process.exit(0)`
+  すること**（launchd / cron 実行でのハング防止に必須）
+
 ## Codex サブスクリプション認証（ChatGPT Plus/Pro OAuth）
 
 公式サポート。OpenAI 自身が「Codex for OSS」プログラムで公認している。
@@ -128,6 +142,12 @@ ENTRYPOINT ["pi"]
    README で代替する
 5. Skills 互換: `settings.json` で Claude Code / OpenAI Codex のスキルディレクトリを
    追加読み込みできる（互換範囲の詳細は要検証）
+6. **単純な応答でも入力トークンは約6.5k**（システムプロンプト等）。`pi --mode json` の
+   `message_end` イベントに usage（トークン・コスト）が入るので計測に使える
+7. macOS には `timeout` コマンドがない。シェルから pi の暴走を防ぎたい場合は
+   Node 側でタイムアウトを実装するか coreutils の `gtimeout` を使う
+8. Codex サンドボックス等の制限環境で `npm install` すると `~/.npm` への書き込みで
+   失敗することがある → `--cache ./.npm-cache` でリポジトリローカルのキャッシュを使う
 
 ## 主要ドキュメント
 
