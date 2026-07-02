@@ -1,6 +1,6 @@
 ---
 name: global-skill-workflow
-description: Create, update, migrate, sync, or organize global skills. Use when an agent is asked to make a global skill, install a personal/global skill, update an existing global skill, sync skills from the remote repository to the local machine, move skills between discovery directories, or manage symlinks for skill discovery. This skill uses `$HOME/ghq/github.com/maguroid/skills` as the canonical repository and symlinks from `$HOME/.agents/skills` and `$HOME/.claude/skills`.
+description: Create, update, migrate, sync, or organize global skills. Use when an agent is asked to make a global skill, install a personal/global skill, update an existing global skill, sync skills from the remote repository to the local machine, move skills between discovery directories, or manage symlinks for skill discovery. Canonical repos are `$HOME/ghq/github.com/maguroid/skills` (personal, default), `$HOME/ghq/github.com/pao-tech-labs/hashigodaka-skills` (company), and `$HOME/ghq/github.com/maguroid/cc-skills` (Claude Code-only); discovery symlinks live in `$HOME/.agents/skills` and `$HOME/.claude/skills`.
 ---
 
 # Global Skill Workflow
@@ -11,19 +11,25 @@ Use `$HOME/ghq/github.com/maguroid/skills` as the canonical source for user-crea
 
 Use the active agent's system skill authoring and validation workflow when creating or updating skill content. This skill controls placement, linking, migration, and validation targets.
 
-## Personal vs Company Skills
+## Choosing the Canonical Repo
 
-Two canonical repos exist. Choose by audience before creating or migrating a skill:
+Three canonical repos exist. Choose by audience and harness before creating or migrating a skill:
 
-- **Personal skills** (the user's own tooling, machine setup, personal workflows): `$HOME/ghq/github.com/maguroid/skills` (default).
+- **Personal skills** (the user's own tooling, machine setup, personal workflows; agent-neutral): `$HOME/ghq/github.com/maguroid/skills` (default).
 - **Company skills** (Hashigodaka team-shared workflows, e.g. `hashigodaka-wiki`): `$HOME/ghq/github.com/pao-tech-labs/hashigodaka-skills` (GitHub: `pao-tech-labs/hashigodaka-skills`, private).
+- **Claude Code-only skills** (skills that only make sense inside the Claude Code harness — e.g. they orchestrate Claude Code-specific delegation or tooling, like `codex-delegate`): `$HOME/ghq/github.com/maguroid/cc-skills` (GitHub: `maguroid/cc-skills`).
 
-Both use the same symlink scheme into `$HOME/.agents/skills` and `$HOME/.claude/skills`. The sync workflow below applies to the personal repo; for the company repo, sync is a plain `git pull` (symlinks resolve to the pulled working tree) plus creating symlinks for any newly added skills. When a skill's audience changes, move it between repos: copy to the target repo, commit both repos, and repoint the discovery symlinks with `ln -sfn`.
+Symlink scheme by repo:
+
+- Personal and company skills link into **both** `$HOME/.agents/skills` and `$HOME/.claude/skills`.
+- Claude Code-only skills (cc-skills) link into **`$HOME/.claude/skills` only** — never into `$HOME/.agents/skills`, which is the agent-neutral discovery directory read by other harnesses (codex etc.).
+
+The sync workflow below applies to the personal repo; for the company and cc-skills repos, sync is a plain `git pull` (symlinks resolve to the pulled working tree) plus creating symlinks for any newly added skills (both directories for company, `$HOME/.claude/skills` only for cc-skills). When a skill's audience or harness scope changes, move it between repos: copy to the target repo, commit both repos, and repoint the discovery symlinks with `ln -sfn` (when a skill moves out of cc-skills to an agent-neutral repo, add the missing `$HOME/.agents/skills` link; when it moves into cc-skills, remove that link).
 
 ## Paths
 
-- Canonical repo: `$HOME/ghq/github.com/maguroid/skills`
-- Active agent discovery directory: `$HOME/.agents/skills`
+- Canonical repos: `$HOME/ghq/github.com/maguroid/skills` (personal, default) / `$HOME/ghq/github.com/pao-tech-labs/hashigodaka-skills` (company) / `$HOME/ghq/github.com/maguroid/cc-skills` (Claude Code-only)
+- Active agent discovery directory (agent-neutral): `$HOME/.agents/skills`
 - Claude discovery directory: `$HOME/.claude/skills`
 - Skill authoring and validation tools: use the active agent's system skills or built-in skill tooling.
 
@@ -31,25 +37,32 @@ Use `$HOME` rather than an OS-user-specific absolute home path in skill instruct
 
 ## New Global Skill Workflow
 
-1. Choose a hyphen-case skill name under 64 characters.
-2. Confirm the canonical path does not already exist:
+1. Choose the canonical repo by audience and harness (see "Choosing the Canonical Repo"), and a hyphen-case skill name under 64 characters.
+2. Confirm the canonical path does not already exist in the chosen repo (and check the other repos for a name collision):
 
 ```sh
-test -e "$HOME/ghq/github.com/maguroid/skills/<skill-name>"
+test -e "<chosen-repo>/<skill-name>"
 ```
 
-3. Initialize the skill in the canonical repo using the active agent's system skill authoring workflow. Target `$HOME/ghq/github.com/maguroid/skills` as the output directory and include agent-specific metadata only when that agent requires it.
+3. Initialize the skill in the chosen canonical repo using the active agent's system skill authoring workflow. Target the chosen repo as the output directory and include agent-specific metadata only when that agent requires it.
 
 4. Edit only files under the canonical skill directory.
-5. Create discovery symlinks:
+5. Create discovery symlinks. For personal and company skills:
 
 ```sh
 mkdir -p "$HOME/.agents/skills" "$HOME/.claude/skills"
-ln -s "$HOME/ghq/github.com/maguroid/skills/<skill-name>" "$HOME/.agents/skills/<skill-name>"
-ln -s "$HOME/ghq/github.com/maguroid/skills/<skill-name>" "$HOME/.claude/skills/<skill-name>"
+ln -s "<chosen-repo>/<skill-name>" "$HOME/.agents/skills/<skill-name>"
+ln -s "<chosen-repo>/<skill-name>" "$HOME/.claude/skills/<skill-name>"
 ```
 
-6. Validate the symlinked skill using the active agent's system validation workflow. Validate through `$HOME/.agents/skills/<skill-name>` and, when supported, also check `$HOME/.claude/skills/<skill-name>`.
+For Claude Code-only skills (cc-skills), create only the Claude link:
+
+```sh
+mkdir -p "$HOME/.claude/skills"
+ln -s "$HOME/ghq/github.com/maguroid/cc-skills/<skill-name>" "$HOME/.claude/skills/<skill-name>"
+```
+
+6. Validate the symlinked skill using the active agent's system validation workflow. Validate through `$HOME/.agents/skills/<skill-name>` and, when supported, also check `$HOME/.claude/skills/<skill-name>`. For cc-skills, validate through `$HOME/.claude/skills/<skill-name>` only.
 
 ## Updating An Existing Global Skill
 
@@ -59,11 +72,13 @@ ln -s "$HOME/ghq/github.com/maguroid/skills/<skill-name>" "$HOME/.claude/skills/
 readlink "$HOME/.agents/skills/<skill-name>"
 ```
 
-2. If it points to `$HOME/ghq/github.com/maguroid/skills/<skill-name>`, edit the canonical directory.
-3. If it is a real directory in `$HOME/.agents/skills`, migrate it to the canonical repo first.
+If there is no entry in `$HOME/.agents/skills`, also check `readlink "$HOME/.claude/skills/<skill-name>"` — a skill that resolves only from there into the cc-skills repo is a Claude Code-only skill, which is a valid state, not a defect.
+
+2. If it points into any of the three canonical repos (`maguroid/skills`, `pao-tech-labs/hashigodaka-skills`, `maguroid/cc-skills`), edit that canonical directory and commit & push in that repo.
+3. If it is a real directory in a discovery directory, migrate it to the appropriate canonical repo first.
 4. If it is a broken symlink, inspect before replacing it.
-5. Ensure `$HOME/.claude/skills/<skill-name>` also points to the canonical directory.
-6. Validate through `$HOME/.agents/skills/<skill-name>` after edits.
+5. Ensure the discovery links match the repo's scheme: both directories for personal/company skills; `$HOME/.claude/skills` only for cc-skills (remove a stray `$HOME/.agents/skills` link pointing into cc-skills).
+6. Validate through `$HOME/.agents/skills/<skill-name>` after edits (`$HOME/.claude/skills/<skill-name>` for cc-skills).
 
 ## Migration Workflow
 
@@ -82,7 +97,9 @@ Do not migrate system skills.
 
 Use this when the user asks to sync skills from the remote repository to this machine, e.g. after setting up a new machine or when another machine pushed new skills. The goal: pull the latest canonical repo from `origin`, then ensure every canonical skill is symlinked into both discovery directories.
 
-Scope is the canonical repo only. Do not touch discovery entries that resolve to other repositories.
+This detailed procedure targets the **personal** repo. For the company and cc-skills repos, apply the same pattern with their path and symlink scheme (cc-skills reconciles `$HOME/.claude/skills` only; a full sync covers all three repos).
+
+Scope is the canonical repo being synced. Do not touch discovery entries that resolve to other repositories.
 
 1. Check for uncommitted changes before pulling:
 
@@ -127,10 +144,10 @@ done
 
 ## Git Hygiene
 
-Before and after changes, check:
+Before and after changes, check the canonical repo you touched:
 
 ```sh
-git -C "$HOME/ghq/github.com/maguroid/skills" status --short --branch
+git -C "<chosen-repo>" status --short --branch
 ```
 
 Do not revert pre-existing changes in the canonical repo. Report unrelated dirty state separately from the skill you created or updated.
@@ -138,7 +155,7 @@ Do not revert pre-existing changes in the canonical repo. Report unrelated dirty
 ## Validation Checklist
 
 - `SKILL.md` exists in the canonical skill directory.
-- `$HOME/.agents/skills/<skill-name>` is a symlink to the canonical directory.
+- `$HOME/.agents/skills/<skill-name>` is a symlink to the canonical directory (**skip for cc-skills**: Claude Code-only skills must NOT appear in `$HOME/.agents/skills`).
 - `$HOME/.claude/skills/<skill-name>` is a symlink to the canonical directory.
 - The active agent's skill validator passes for the symlinked skill.
 - Agent-specific metadata files are present and valid only when required by that agent.
