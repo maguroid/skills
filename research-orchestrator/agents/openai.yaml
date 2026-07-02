@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research Orchestrator"
+  short_description: "Run deep, multi-source, fact-checked research (not for single-URL summaries)"
+  default_prompt: "Use $research-orchestrator to run deep multi-source research with adversarial verification and a cited report. Not for summarizing a single URL or quick one-source lookups."
