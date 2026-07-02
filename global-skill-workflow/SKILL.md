@@ -11,6 +11,15 @@ Use `$HOME/ghq/github.com/maguroid/skills` as the canonical source for user-crea
 
 Use the active agent's system skill authoring and validation workflow when creating or updating skill content. This skill controls placement, linking, migration, and validation targets.
 
+## Personal vs Company Skills
+
+Two canonical repos exist. Choose by audience before creating or migrating a skill:
+
+- **Personal skills** (the user's own tooling, machine setup, personal workflows): `$HOME/ghq/github.com/maguroid/skills` (default).
+- **Company skills** (Hashigodaka team-shared workflows, e.g. `hashigodaka-wiki`): `$HOME/ghq/github.com/pao-tech-labs/hashigodaka-skills` (GitHub: `pao-tech-labs/hashigodaka-skills`, private).
+
+Both use the same symlink scheme into `$HOME/.agents/skills` and `$HOME/.claude/skills`. The sync workflow below applies to the personal repo; for the company repo, sync is a plain `git pull` (symlinks resolve to the pulled working tree) plus creating symlinks for any newly added skills. When a skill's audience changes, move it between repos: copy to the target repo, commit both repos, and repoint the discovery symlinks with `ln -sfn`.
+
 ## Paths
 
 - Canonical repo: `$HOME/ghq/github.com/maguroid/skills`
