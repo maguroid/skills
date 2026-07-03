@@ -17,14 +17,14 @@ Two public canonical repos exist, plus optional private repos in a local registr
 
 - **Personal skills** (the user's own tooling, machine setup, personal workflows; agent-neutral): `$HOME/ghq/github.com/maguroid/skills` (default; public).
 - **Claude Code-only skills** (skills that only make sense inside the Claude Code harness — e.g. they orchestrate Claude Code-specific delegation or tooling, like `codex-delegate`): `$HOME/ghq/github.com/maguroid/cc-skills` (GitHub: `maguroid/cc-skills`; public).
-- **Private repos (team/company skills etc.)**: registered in the machine-local registry `$HOME/.agents/skills-repos.local.md`. **Read that file before choosing a repo** — if the skill's audience matches an entry there, use that repo. This SKILL.md lives in a public repo, so private repo names, org names, and audience details belong ONLY in the registry file, never here. When creating or updating a skill in a private repo, keep following this workflow's steps with that repo's path and the symlink scheme its registry entry declares.
+- **Additional repos (including private repos)**: registered in the machine-local registry `$HOME/.agents/skills-repos.local.md`. **Read that file before choosing a repo** — if the skill's audience matches an entry there, use that repo. This SKILL.md lives in a public repo, so private repo names, org names, and audience details belong ONLY in the registry file, never here. When creating or updating a skill in an additional repo, keep following this workflow's steps with that repo's path, skills path, and symlink scheme as declared by its registry entry.
 
 Symlink scheme by repo:
 
 - Personal skills — and private-registry repos unless their entry says otherwise — link into **both** `$HOME/.agents/skills` and `$HOME/.claude/skills`.
 - Claude Code-only skills (cc-skills) link into **`$HOME/.claude/skills` only** — never into `$HOME/.agents/skills`, which is the agent-neutral discovery directory read by other harnesses (codex etc.).
 
-The sync workflow below applies to the personal repo; for cc-skills and private-registry repos, sync is a plain `git pull` (symlinks resolve to the pulled working tree) plus creating symlinks for any newly added skills, per each repo's symlink scheme. When a skill's audience or harness scope changes, move it between repos: copy to the target repo, commit both repos, and repoint the discovery symlinks with `ln -sfn` (when a skill moves out of cc-skills to an agent-neutral repo, add the missing `$HOME/.agents/skills` link; when it moves into cc-skills, remove that link).
+The sync workflow below applies to the personal repo; for cc-skills and registry repos, sync is a plain `git pull` (symlinks resolve to the pulled working tree) plus creating symlinks for any newly added skills, per each repo's symlink scheme and skills path. When a skill's audience or harness scope changes, move it between repos: copy to the target repo, commit both repos, and repoint the discovery symlinks with `ln -sfn` (when a skill moves out of cc-skills to an agent-neutral repo, add the missing `$HOME/.agents/skills` link; when it moves into cc-skills, remove that link).
 
 ## Paths
 
@@ -34,6 +34,18 @@ The sync workflow below applies to the personal repo; for cc-skills and private-
 - Skill authoring and validation tools: use the active agent's system skills or built-in skill tooling.
 
 Use `$HOME` rather than an OS-user-specific absolute home path in skill instructions. Do not use a non-hidden `$HOME/claude/skills` directory unless the user explicitly configures or requests that alternate location.
+
+## New Machine Bootstrap
+
+Use `$HOME/ghq/github.com/maguroid/skills/bootstrap.sh` when setting up global skills on a new terminal or machine. The script is idempotent and uses only `$HOME`-relative paths. It always knows the two public canonical repos (`maguroid/skills` as agent-neutral and `maguroid/cc-skills` as Claude Code-only), and if `$HOME/.agents/skills-repos.local.md` exists, it reads the additional repo entries declared there. When a chezmoi source copy exists at `$HOME/.local/share/chezmoi/dot_agents/skills-repos.local.md`, the script reads that too and de-duplicates entries by path; this lets the source registry be tested before applying it. The registry is machine-local/private data; this public repo must mention only the registry format and never private organization names, repository names, or audiences.
+
+Registry entries use `- Path: \`...\``, `- GitHub: \`owner/repo\``, and `- Symlink scheme: ...`; they may also include `- Skills path: \`<subdir>\``. When `Skills path` is omitted, the repo is treated like the personal repo: top-level directories containing `SKILL.md` are skills. When it is `skills`, top-level directories under that subdirectory are skills. When it is `.`, the repository root itself is one skill, and the link name is the repository directory name.
+
+The bootstrap script clones any missing canonical repo with its SSH GitHub URL and leaves existing repos alone. It does not pull existing repos; pulling remains the responsibility of the Sync Workflow below so dirty working trees are handled deliberately. Clone failures for the two built-in public repos are fatal; clone failures for registry repos are warning-only so private or optional repos do not make chezmoi run-once hooks fail forever on machines without access.
+
+After clone-if-missing, the script reconciles discovery symlinks with the same semantics as Sync Workflow step 4: create missing symlinks, repair broken symlinks whose intended target is the canonical skill directory, leave already-correct links untouched, and report real directories or foreign symlinks as conflicts without overwriting them. Agent-neutral repos link each top-level `SKILL.md` directory into both `$HOME/.agents/skills` and `$HOME/.claude/skills`. Claude Code-only repos link into `$HOME/.claude/skills` only; any matching link from `$HOME/.agents/skills` to a Claude Code-only skill is reported as a stray and left untouched.
+
+The user's private dotfiles repo may distribute `$HOME/.agents/skills-repos.local.md` and a chezmoi `run_once_after_bootstrap-global-skills.sh` script. With that setup, `chezmoi init --apply` can install the private registry, clone `maguroid/skills` if needed, and run `bootstrap.sh` automatically. Keep private registry contents in the private dotfiles repo only, never in this public skill repo.
 
 ## New Global Skill Workflow
 
