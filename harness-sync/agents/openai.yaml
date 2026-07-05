@@ -1,0 +1,4 @@
+interface:
+  display_name: "Harness Sync"
+  short_description: "Sync the agent working environment across machines: pull (bootstrap/update via chezmoi, mise, skills, hubs) and push (edit chezmoi-managed dotfiles, fold drift back)."
+  default_prompt: "For pull work, bootstrap or update this machine from the canonical remotes (chezmoi init/update, run_onchange hooks, doctor.sh) and resolve follower-machine conflicts. For push work, detect whether a dotfile is chezmoi-managed, edit or sync it through chezmoi (autoCommit/autoPush fires on chezmoi commands that change the source state), and review for secrets before touching the source state."

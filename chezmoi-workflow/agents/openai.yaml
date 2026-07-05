@@ -1,4 +1,0 @@
-interface:
-  display_name: "Chezmoi Workflow"
-  short_description: "Keep chezmoi-managed dotfiles synced with the source repo."
-  default_prompt: "Detect whether a dotfile is chezmoi-managed, edit or sync it through chezmoi (autoCommit/autoPush fires on chezmoi commands that change the source state), and review for secrets before touching the source state."
