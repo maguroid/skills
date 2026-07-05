@@ -560,7 +560,23 @@ def prepare_worktree(hub: Hub, repo_info: RepoInfo, branch: str) -> Path:
         cwd=hub.path,
         capture=False,
     )
+    neutralize_worktree_hooks(worktree)
     return worktree
+
+
+def neutralize_worktree_hooks(worktree: Path) -> None:
+    """Remove harness hook/settings files from the throwaway worktree.
+
+    Hub repos ship Claude Code hooks (auto commit-and-push on Stop) that would
+    otherwise fire inside the model session and commit digest/prompt files onto
+    the dreaming branch. Deleting the files only dirties the worktree working
+    dir; the whitelisted `git add` never stages these deletions.
+    """
+    for rel in (".claude/settings.json", ".claude/settings.local.json"):
+        path = worktree / rel
+        if path.exists():
+            path.unlink()
+            log(f"neutralized {rel} in worktree")
 
 
 def worktree_path(hub: Hub) -> Path:
