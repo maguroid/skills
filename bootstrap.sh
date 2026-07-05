@@ -13,6 +13,9 @@ repo_skills_paths=()
 repo_sources=()
 
 cloned=0
+pulled=0
+pull_skipped_dirty=0
+pull_failures=0
 linked_created=0
 repaired=0
 already_correct=0
@@ -232,6 +235,30 @@ clone_if_missing() {
   return 1
 }
 
+pull_if_clean() {
+  local repo_path=$1
+  local status_output
+
+  if ! status_output=$(git -C "$repo_path" status --porcelain 2>/dev/null); then
+    warn "failed to inspect repo status; skipping pull: $repo_path"
+    pull_failures=$((pull_failures + 1))
+    return
+  fi
+
+  if [ -n "$status_output" ]; then
+    warn "repo is dirty; skipping pull: $repo_path"
+    pull_skipped_dirty=$((pull_skipped_dirty + 1))
+    return
+  fi
+
+  if git -C "$repo_path" pull --ff-only; then
+    pulled=$((pulled + 1))
+  else
+    warn "failed to pull --ff-only; continuing without updating: $repo_path"
+    pull_failures=$((pull_failures + 1))
+  fi
+}
+
 enumerate_skills() {
   local repo_path=$1
   local skills_path=$2
@@ -275,6 +302,7 @@ process_repo() {
   local canonical
   local agents_link
   local target
+  local repo_existed=0
 
   if [ -n "$skills_path" ]; then
     printf 'repo: %s (%s, skills path: %s)\n' "$github" "$scheme" "$skills_path"
@@ -282,8 +310,16 @@ process_repo() {
     printf 'repo: %s (%s)\n' "$github" "$scheme"
   fi
 
+  if [ -d "$repo_path" ]; then
+    repo_existed=1
+  fi
+
   if ! clone_if_missing "$repo_path" "$github" "$source"; then
     return
+  fi
+
+  if [ "$repo_existed" -eq 1 ]; then
+    pull_if_clean "$repo_path"
   fi
 
   while IFS=$'\t' read -r name canonical; do
@@ -312,6 +348,9 @@ print_summary() {
 
   printf '\nSummary:\n'
   printf '  cloned: %d\n' "$cloned"
+  printf '  pulled: %d\n' "$pulled"
+  printf '  pull skipped (dirty): %d\n' "$pull_skipped_dirty"
+  printf '  pull failures: %d\n' "$pull_failures"
   printf '  linked(created): %d\n' "$linked_created"
   printf '  repaired: %d\n' "$repaired"
   printf '  already-correct: %d\n' "$already_correct"
