@@ -48,6 +48,12 @@ Properties of the chezmoi lane that both directions depend on:
 
 ## New Machine Setup
 
+**Existing machine with a stale source?** If chezmoi is already installed but the source
+checkout is old, the one-liner below will NOT bring the environment up to date. Telltale
+signs: `chezmoi status` works yet today's `scripts/` are missing, or skill links are
+fewer than expected / already-deleted skills still present. The right move there is
+`chezmoi update -v --force`, then continue at the doctor step.
+
 Prerequisites: Xcode Command Line Tools (for `git`), and an SSH key registered with
 GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
 
@@ -57,7 +63,8 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
    sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply git@github.com:maguroid/dotfiles.git
    ```
 
-2. This chains automatically, in order:
+2. This chains automatically, in order (each stage prints a `==> [1/4]` … `==> [4/4]`
+   progress banner):
    - `run_once_before_00-install-mise.sh` installs mise if it isn't present yet.
    - chezmoi applies the full dotfile set into `$HOME` (`~/.zsh.d`, `~/.claude`, `~/.codex`,
      `~/.config/mise`, etc.).
@@ -140,11 +147,31 @@ default**, after inspection.
   surfaces the duplicates (WARNING when `command -v` resolves outside
   `~/.local/share/mise`); guide the user to uninstall the brew copy or fix PATH ordering
   so the shadowed copy doesn't resurface in odd contexts.
+- **The chezmoi source repo itself**: `chezmoi update` can fail with
+  `error: The following untracked working tree files would be overwritten by checkout`
+  or an autostash-related `chezmoi: git: exit status 1` — e.g. when an untracked file
+  sat in the source (a stray `dot_zsh.d/site-functions/_docker`) and the canonical repo
+  later started tracking a file of the same name. Recovery, with the canonical remote
+  winning:
+
+  ```sh
+  cd ~/.local/share/chezmoi
+  git fetch origin
+  git clean -nd          # preview which untracked files will be deleted
+  git clean -fd
+  git reset --hard origin/main
+  chezmoi apply -v --force
+  ```
 - **Hub and skill repos**: sync only ever fast-forwards (`--ff-only`) on a clean tree.
   Dirty or diverged repos are warned and skipped, never auto-resolved — hubs have their
   own auto-sync hooks pushing from the machine where work happens, so a dirty follower
   hub usually means work happened here that those hooks will handle, or that needs a
   human decision.
+
+Note on `-v`: `chezmoi apply -v` / `update -v` shows each file's diff through a pager,
+which stops after every file on a drift-heavy machine (it looks hung at a `lines 1-37`
+prompt). When an agent runs these, or you want the log to stream through, add
+`--no-pager` (verified working: `chezmoi apply -v --force --no-pager`).
 
 ## Daily Sync (existing machine)
 
