@@ -1,6 +1,6 @@
 ---
 name: harness-sync
-description: Own both directions of syncing this user's agent working environment (dotfiles, mise tools, global skills, hub repos, credentials) across machines — pull (bootstrap/update a machine from the remotes) and push (edit chezmoi-managed dotfiles and fold local drift back into the chezmoi source repo). Use for (1) "新しい Mac をセットアップして" / "別端末に環境を同期して" / "環境を同期して" / "ハーネス同期" / setting up a new machine or checking whether this machine has everything the harness needs; (2) "セットアップ状況を診断して" / running or interpreting the environment doctor script; (3) pulling remote changes down to this machine — `chezmoi update` / `chezmoi init --apply` — including run_onchange follow-through (mise install, skill bootstrap, hub repo sync) and pull-direction conflicts (chezmoi overwrite prompts, brew-vs-mise duplicates, dirty hub repos); (4) any task that edits or appends to configuration under a chezmoi-managed location (e.g. ~/.zsh.d, ~/.config/nvim, ~/.claude, ~/.codex, ~/.config/ghostty) even when chezmoi isn't named and even when no specific file is named — "zshにエイリアス追加して", "add a zsh alias", "change the ghostty config", "update the nvim keymap" — first check whether the target is chezmoi-managed and if so follow this workflow; (5) requests to sync or reconcile local drift into chezmoi, e.g. "dotfiles同期して", "sync dotfiles", "chezmoiに取り込んで", "pull my local changes into chezmoi"; (6) explicit chezmoi operations such as add, edit, remove, diff, apply. Do not use for files that are not part of the chezmoi source state (verify with `chezmoi source-path`) unless the user explicitly asks to bring them under chezmoi management; not for authoring or migrating individual skills (that is `global-skill-workflow`'s job); not for agent memory operation — GC, briefs, conventions (that is `feedback-assetization`'s job; the hub repo clone/pull that carries `agent-memory/` IS covered here).
+description: Own both directions of syncing this user's agent working environment (dotfiles, mise tools, global skills, hub repos, credentials) across machines — pull (bootstrap/update a machine from the remotes) and push (edit chezmoi-managed dotfiles and fold local drift back into the chezmoi source repo). Use for (1) "新しい Mac をセットアップして" / "別端末に環境を同期して" / "環境を同期して" / "ハーネス同期" / setting up a new machine or checking whether this machine has everything the harness needs; (2) "セットアップ状況を診断して" / running or interpreting the environment doctor script; (3) pulling remote changes down to this machine — `chezmoi update` / `chezmoi init --apply` — including the automatic hook follow-through (mise install, skill bootstrap, hub repo sync) and pull-direction conflicts (chezmoi overwrite prompts, brew-vs-mise duplicates, dirty hub repos); (4) any task that edits or appends to configuration under a chezmoi-managed location (e.g. ~/.zsh.d, ~/.config/nvim, ~/.claude, ~/.codex, ~/.config/ghostty) even when chezmoi isn't named and even when no specific file is named — "zshにエイリアス追加して", "add a zsh alias", "change the ghostty config", "update the nvim keymap" — first check whether the target is chezmoi-managed and if so follow this workflow; (5) requests to sync or reconcile local drift into chezmoi, e.g. "dotfiles同期して", "sync dotfiles", "chezmoiに取り込んで", "pull my local changes into chezmoi"; (6) explicit chezmoi operations such as add, edit, remove, diff, apply. Do not use for files that are not part of the chezmoi source state (verify with `chezmoi source-path`) unless the user explicitly asks to bring them under chezmoi management; not for authoring or migrating individual skills (that is `global-skill-workflow`'s job); not for agent memory operation — GC, briefs, conventions (that is `feedback-assetization`'s job; the hub repo clone/pull that carries `agent-memory/` IS covered here).
 ---
 
 # Harness Sync
@@ -19,8 +19,8 @@ invented — these are already wired up:
 |---|---|---|
 | Dotfiles (`~/.zsh.d`, `~/.claude/{CLAUDE.md,settings.json,keybindings.json}`, `~/.codex/{config.toml,AGENTS.md,rules}`, `~/.config/mise`, ...) | `git@github.com:maguroid/dotfiles.git` (branch `main`), local checkout `~/.local/share/chezmoi` | chezmoi (`chezmoi init --apply` first time, `chezmoi update` thereafter) |
 | Runtime/CLI tools (node, uv, etc.) | `~/.config/mise/config.toml` (itself chezmoi-managed) | mise (`mise install`, triggered automatically by a chezmoi run_onchange hook whenever the config changes) |
-| Global skills (`global-skill-workflow`, `feedback-assetization`, this skill, ...) | `maguroid/skills` (agent-neutral) + `maguroid/cc-skills` (Claude Code-only) + any private repos in `~/.agents/skills-repos.local.md` | clone + `bootstrap.sh` (symlinks into `~/.agents/skills` and `~/.claude/skills`), triggered automatically by a chezmoi run_onchange hook whenever the skill registry changes |
-| Hub repos, incl. agent memory (each hub — e.g. Workspace-Me, Workspace-HSG — carries its `agent-memory/`) | hub registry `~/.agents/hubs.md` (chezmoi-managed; each hub entry declares `- リモート:` and `- リモート名:`) | `run_onchange_after_30-sync-hubs.sh`, reacting to `hubs.md` changes: clone if missing, `git pull --ff-only` if present and clean, warn-and-skip if dirty/diverged. Memory *operation* (GC, briefs, conventions) stays with `feedback-assetization` |
+| Global skills (`global-skill-workflow`, `feedback-assetization`, this skill, ...) | `maguroid/skills` (agent-neutral) + `maguroid/cc-skills` (Claude Code-only) + any private repos in `~/.agents/skills-repos.local.md` | clone + pull + `bootstrap.sh` (pulls clean registered repos `--ff-only`, then symlinks into `~/.agents/skills` and `~/.claude/skills`), run on **every** chezmoi apply via a run_after hook (1-hour throttle) |
+| Hub repos, incl. agent memory (each hub — e.g. Workspace-Me, Workspace-HSG — carries its `agent-memory/`) | hub registry `~/.agents/hubs.md` (chezmoi-managed; each hub entry declares `- リモート:` and `- リモート名:`) | `run_after_30-sync-hubs.sh` on **every** chezmoi apply (1-hour throttle): clone if missing, `git pull --ff-only` if present and clean, warn-and-skip if dirty/diverged. Memory *operation* (GC, briefs, conventions) stays with `feedback-assetization` |
 
 Credentials and machine-specific state are **not** distributed by any of the above and
 must be established per machine: `~/.llmx/credentials`, `~/.config/gogcli/credentials.json`,
@@ -69,18 +69,27 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
    - chezmoi applies the full dotfile set into `$HOME` (`~/.zsh.d`, `~/.claude`, `~/.codex`,
      `~/.config/mise`, etc.).
    - `run_onchange_after_10-mise-install.sh` runs `mise install` to pull every tool
-     declared in `~/.config/mise/config.toml`.
-   - `run_onchange_after_20-bootstrap-global-skills.sh` clones `maguroid/skills` (and any
-     registry repos) and runs `bootstrap.sh`, wiring up `~/.agents/skills/*` and
+     declared in `~/.config/mise/config.toml` (run_onchange: keyed to the mise config
+     hash, so it fires only when that file changes).
+   - `run_after_20-bootstrap-global-skills.sh` first pulls the `maguroid/skills` repo
+     itself (`git pull --ff-only`, only if clean — so a stale `bootstrap.sh` is never
+     used), then clones any missing registry repos and runs `bootstrap.sh`, which pulls
+     each clean registered repo and wires up `~/.agents/skills/*` and
      `~/.claude/skills/*` symlinks. See `global-skill-workflow` for what this script does
      in detail — don't re-explain it here.
-   - `run_onchange_after_30-sync-hubs.sh` reads the hub registry `~/.agents/hubs.md` and,
+   - `run_after_30-sync-hubs.sh` reads the hub registry `~/.agents/hubs.md` and,
      per hub: clones if missing (renaming the remote from `origin` when the entry's
      `- リモート名:` says so — e.g. Workspace-Me uses `github`); if already present and
      clean, runs `git pull --ff-only`; if dirty or diverged, warns and skips. Individual
      hub failures do not fail the apply. Since each hub carries its `agent-memory/`, the
      one-liner covers agent-memory availability too — memory *operation* remains
      `feedback-assetization`'s domain.
+
+   The 20/30 stages are `run_after` hooks: they run on **every** apply, but with a
+   1-hour throttle — within an hour of the last successful run they print
+   `==> [3/4] スキップ（前回実行から1時間未満。HARNESS_SYNC_FORCE=1 で強制実行）` and skip
+   (stamps: `~/.cache/harness-sync/{skills,hubs}-last-run`). Set `HARNESS_SYNC_FORCE=1`
+   to force them.
 
 3. Run the diagnostic script and interpret its output for the user:
 
@@ -123,7 +132,8 @@ manual transfer. For each MISSING/WARNING item, tell the user what command to ru
 - A real (non-symlinked) directory under `~/.agents/skills` → this is drift, not a sync
   gap; hand off to `global-skill-workflow`'s conflict-handling, don't resolve it here.
 - Hub MISSING → the agent CAN fix this one: re-run `chezmoi apply` (or `chezmoi update`),
-  which re-triggers the hub sync script.
+  which re-triggers the hub sync script (prefix `HARNESS_SYNC_FORCE=1` if the last run
+  was within the hour, or the throttle will skip it).
 - Hub dirty / diverged (WARNING) → do not auto-resolve; see Conflict Resolution Policy.
 - Tool resolving outside `~/.local/share/mise` (WARNING) → duplicate management; see
   Conflict Resolution Policy.
@@ -179,10 +189,19 @@ prompt). When an agent runs these, or you want the log to stream through, add
 chezmoi update
 ```
 
-This pulls the dotfiles repo and re-applies. Any change to `~/.config/mise/config.toml`,
-the skill registry (`~/.agents/skills-repos.local.md`), or the hub registry
-(`~/.agents/hubs.md`) is picked up automatically by the same run_onchange hooks as in
-New Machine Setup — no separate mise, skill-bootstrap, or hub-sync step is needed.
+One command now refreshes everything: dotfiles, mise tools (run_onchange, fires when
+`~/.config/mise/config.toml` changed), skill repos, and hubs — the 20/30 `run_after`
+hooks run on every apply, so no separate mise, skill-bootstrap, or hub-sync step is
+needed. Two behaviors to know:
+
+- **Throttle**: if the 20/30 stages ran successfully within the last hour they print a
+  スキップ banner and do nothing; prefix with `HARNESS_SYNC_FORCE=1` when you need them
+  to run right now (e.g. another machine just pushed a new skill).
+- **bootstrap pull results**: the bootstrap Summary now includes `pulled` /
+  `pull skipped (dirty)` / `pull failures`. A pull failure (e.g. a repo sitting on a WIP
+  branch with no upstream) is a warning only, never fatal — mention it to the user and
+  move on.
+
 If the update stops on an overwrite prompt (or fails non-interactively with a local
 diff), follow the Conflict Resolution Policy above. Run `bash ~/.local/share/chezmoi/scripts/doctor.sh` afterward if there's
 any doubt about credential or hook state (e.g. after a long gap since last sync, or before

@@ -24,7 +24,7 @@ Symlink scheme by repo:
 - Personal skills — and private-registry repos unless their entry says otherwise — link into **both** `$HOME/.agents/skills` and `$HOME/.claude/skills`.
 - Claude Code-only skills (cc-skills) link into **`$HOME/.claude/skills` only** — never into `$HOME/.agents/skills`, which is the agent-neutral discovery directory read by other harnesses (codex etc.).
 
-The sync workflow below applies to the personal repo; for cc-skills and registry repos, sync is a plain `git pull` (symlinks resolve to the pulled working tree) plus creating symlinks for any newly added skills, per each repo's symlink scheme and skills path. When a skill's audience or harness scope changes, move it between repos: copy to the target repo, commit both repos, and repoint the discovery symlinks with `ln -sfn` (when a skill moves out of cc-skills to an agent-neutral repo, add the missing `$HOME/.agents/skills` link; when it moves into cc-skills, remove that link).
+The Sync Workflow below covers all registered repos at once via `bootstrap.sh` (pull + symlink reconciliation, per each repo's symlink scheme and skills path). When a skill's audience or harness scope changes, move it between repos: copy to the target repo, commit both repos, and repoint the discovery symlinks with `ln -sfn` (when a skill moves out of cc-skills to an agent-neutral repo, add the missing `$HOME/.agents/skills` link; when it moves into cc-skills, remove that link).
 
 ## Paths
 
@@ -41,11 +41,11 @@ Use `$HOME/ghq/github.com/maguroid/skills/bootstrap.sh` when setting up global s
 
 Registry entries use `- Path: \`...\``, `- GitHub: \`owner/repo\``, and `- Symlink scheme: ...`; they may also include `- Skills path: \`<subdir>\``. When `Skills path` is omitted, the repo is treated like the personal repo: top-level directories containing `SKILL.md` are skills. When it is `skills`, top-level directories under that subdirectory are skills. When it is `.`, the repository root itself is one skill, and the link name is the repository directory name.
 
-The bootstrap script clones any missing canonical repo with its SSH GitHub URL and leaves existing repos alone. It does not pull existing repos; pulling remains the responsibility of the Sync Workflow below so dirty working trees are handled deliberately. Clone failures for the two built-in public repos are fatal; clone failures for registry repos are warning-only so private or optional repos do not make chezmoi run-once hooks fail forever on machines without access.
+The bootstrap script clones any missing canonical repo with its SSH GitHub URL. For repos that already exist, it also pulls: clean working tree → `git pull --ff-only`; dirty → warn and skip; pull failure (e.g. a WIP branch with no upstream) → warning only, the run continues. The Summary reports `pulled`, `pull skipped (dirty)`, and `pull failures` alongside the link counts. Clone failures for the two built-in public repos are fatal; clone failures for registry repos are warning-only so private or optional repos do not make chezmoi hooks fail forever on machines without access.
 
-After clone-if-missing, the script reconciles discovery symlinks with the same semantics as Sync Workflow step 4: create missing symlinks, repair broken symlinks whose intended target is the canonical skill directory, leave already-correct links untouched, and report real directories or foreign symlinks as conflicts without overwriting them. Agent-neutral repos link each top-level `SKILL.md` directory into both `$HOME/.agents/skills` and `$HOME/.claude/skills`. Claude Code-only repos link into `$HOME/.claude/skills` only; any matching link from `$HOME/.agents/skills` to a Claude Code-only skill is reported as a stray and left untouched.
+After clone-and-pull, the script reconciles discovery symlinks: create missing symlinks, repair broken symlinks whose intended target is the canonical skill directory, leave already-correct links untouched, and report real directories or foreign symlinks as conflicts without overwriting them. Agent-neutral repos link each top-level `SKILL.md` directory into both `$HOME/.agents/skills` and `$HOME/.claude/skills`. Claude Code-only repos link into `$HOME/.claude/skills` only; any matching link from `$HOME/.agents/skills` to a Claude Code-only skill is reported as a stray and left untouched.
 
-The user's private dotfiles repo may distribute `$HOME/.agents/skills-repos.local.md` and a chezmoi `run_once_after_bootstrap-global-skills.sh` script. With that setup, `chezmoi init --apply` can install the private registry, clone `maguroid/skills` if needed, and run `bootstrap.sh` automatically. Keep private registry contents in the private dotfiles repo only, never in this public skill repo.
+The user's private dotfiles repo may distribute `$HOME/.agents/skills-repos.local.md` and a chezmoi `run_after` hook script that wraps `bootstrap.sh` (currently `run_after_20-bootstrap-global-skills.sh`: it first pulls the `maguroid/skills` repo itself when clean so a stale `bootstrap.sh` is never used, then runs it on every apply with a 1-hour throttle; `HARNESS_SYNC_FORCE=1` forces a run). With that setup, `chezmoi init --apply` / `chezmoi update` installs the private registry, clones `maguroid/skills` if needed, and runs `bootstrap.sh` automatically. Keep private registry contents in the private dotfiles repo only, never in this public skill repo.
 
 ## New Global Skill Workflow
 
@@ -107,52 +107,17 @@ Do not migrate system skills.
 
 ## Sync Workflow
 
-Use this when the user asks to sync skills from the remote repository to this machine, e.g. after setting up a new machine or when another machine pushed new skills. The goal: pull the latest canonical repo from `origin`, then ensure every canonical skill is symlinked into both discovery directories.
-
-This detailed procedure targets the **personal** repo. For cc-skills and private-registry repos, apply the same pattern with their path and symlink scheme (cc-skills reconciles `$HOME/.claude/skills` only; a full sync covers the two public repos plus every registry entry).
-
-Scope is the canonical repo being synced. Do not touch discovery entries that resolve to other repositories.
-
-1. Check for uncommitted changes before pulling:
+Use this when the user asks to sync skills from the remote repositories to this machine, e.g. after setting up a new machine or when another machine pushed new skills. `bootstrap.sh` now does both the pulling and the linking, so the default path is simply:
 
 ```sh
-git -C "$HOME/ghq/github.com/maguroid/skills" status --short --branch
+bash "$HOME/ghq/github.com/maguroid/skills/bootstrap.sh"
 ```
 
-If the working tree is dirty, report it and ask before pulling. Do not stash or discard the user's changes.
+- It covers every registered repo (the two public repos plus registry entries), pulling each existing clean repo `--ff-only` and reconciling discovery symlinks per each repo's symlink scheme, with the semantics described in New Machine Bootstrap. Dirty working trees are warned and skipped — never stash or discard the user's changes; resolve them deliberately and re-run. Pull failures (e.g. a WIP branch with no upstream) are warning-only.
+- It also rides the dotfiles apply chain: `chezmoi update` runs it via a `run_after` hook (1-hour throttle; `HARNESS_SYNC_FORCE=1` forces), and that hook pulls the `maguroid/skills` repo itself first so the script is never stale. So a plain `chezmoi update` usually syncs skills as a side effect — see the `harness-sync` skill for that chain.
+- Read its Summary and report it: `pulled` / `pull skipped (dirty)` / `pull failures`, plus newly linked, repaired, already-correct, and conflicts skipped. Never silently overwrite a conflict; do not touch discovery entries that resolve to other repositories.
 
-2. Pull from `origin` explicitly (the repo also has a `lima` remote; do not rely on the implicit upstream):
-
-```sh
-git -C "$HOME/ghq/github.com/maguroid/skills" pull origin "$(git -C "$HOME/ghq/github.com/maguroid/skills" branch --show-current)"
-```
-
-3. Enumerate canonical skills: every top-level directory in the canonical repo that contains a `SKILL.md`. Skip `.git` and any directory without `SKILL.md`.
-
-4. For each canonical skill `<name>`, reconcile both `$HOME/.agents/skills/<name>` and `$HOME/.claude/skills/<name>`:
-   - Missing: create the symlink to the canonical directory.
-   - Symlink already pointing at the canonical directory: leave it.
-   - Broken symlink whose intended target is the canonical directory: recreate it.
-   - A real directory, or a symlink resolving to a different repository: do not overwrite. Report it as a conflict and leave it untouched.
-
-```sh
-mkdir -p "$HOME/.agents/skills" "$HOME/.claude/skills"
-canonical="$HOME/ghq/github.com/maguroid/skills/<name>"
-for dir in "$HOME/.agents/skills" "$HOME/.claude/skills"; do
-  link="$dir/<name>"
-  if [ -L "$link" ] && [ "$(readlink "$link")" = "$canonical" ]; then
-    continue                      # already correct
-  elif [ -e "$link" ] || { [ -L "$link" ] && [ "$(readlink "$link")" != "$canonical" ]; }; then
-    echo "conflict: $link (left untouched)"   # real dir or foreign symlink
-  else
-    ln -sfn "$canonical" "$link"  # missing or broken canonical-target link
-  fi
-done
-```
-
-5. Report a summary: newly linked, already correct, repaired, and conflicts skipped. Never silently overwrite a conflict.
-
-6. Validate a sample of the synced skills through `$HOME/.agents/skills/<name>` using the active agent's validation workflow.
+After a sync, validate a sample of the synced skills through `$HOME/.agents/skills/<name>` using the active agent's validation workflow.
 
 ## Git Hygiene
 
