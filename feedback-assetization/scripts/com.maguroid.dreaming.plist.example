@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.maguroid.dreaming</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>__HOME__/.local/share/mise/shims/uv</string>
+    <string>run</string>
+    <string>--no-project</string>
+    <string>__HOME__/ghq/github.com/maguroid/skills/feedback-assetization/scripts/dreaming_nightly.py</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>__HOME__/.local/bin:__HOME__/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>5</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/dreaming.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/dreaming.log</string>
+</dict>
+</plist>
