@@ -633,7 +633,11 @@ Output rules:
 def run_model(worktree: Path, hub: Hub) -> bool:
     session = f"dreaming-{slugify(hub.name)}"
     report = worktree / "agent-memory" / ".dreaming" / "report.md"
-    prompt_arg = "agent-memory/.dreaming/prompt.md を読んでその指示に従え"
+    # NOTE: the prompt must NOT be passed as a positional CLI argument.
+    # `--disallowedTools <tools...>` is variadic and swallows a following
+    # positional prompt as another tool name, leaving the REPL idle.
+    # Launch the bare REPL, wait for the input prompt, then type via send-keys.
+    prompt_text = "agent-memory/.dreaming/prompt.md を読んでその指示に従え"
     command = " ".join(
         shell_quote(part)
         for part in [
@@ -644,12 +648,19 @@ def run_model(worktree: Path, hub: Hub) -> bool:
             "acceptEdits",
             "--disallowedTools",
             "Bash",
-            prompt_arg,
         ]
     )
     run(["tmux", "kill-session", "-t", session], check=False)
     log(f"start tmux session {session}")
     run(["tmux", "new-session", "-d", "-s", session, "-c", str(worktree), command])
+
+    if not wait_for_repl(session):
+        log(f"claude REPL did not become ready for {hub.name}")
+        run(["tmux", "kill-session", "-t", session], check=False)
+        return False
+    run(["tmux", "send-keys", "-t", session, prompt_text])
+    time.sleep(1)
+    run(["tmux", "send-keys", "-t", session, "Enter"])
 
     deadline = time.monotonic() + MODEL_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
@@ -660,6 +671,18 @@ def run_model(worktree: Path, hub: Hub) -> bool:
 
     log(f"timeout waiting for report.md for {hub.name}")
     run(["tmux", "kill-session", "-t", session], check=False)
+    return False
+
+
+def wait_for_repl(session: str, timeout_seconds: int = 90) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        pane = run(["tmux", "capture-pane", "-t", session, "-p"], check=False)
+        if pane.returncode != 0:
+            return False  # session died (claude failed to start)
+        if "❯" in (pane.stdout or ""):
+            return True
+        time.sleep(2)
     return False
 
 
