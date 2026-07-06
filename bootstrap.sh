@@ -24,6 +24,8 @@ strays=0
 clone_failures=0
 registry_clone_failures=0
 link_failures=0
+hooks_installed=0
+hooks_skipped=0
 
 conflict_items=()
 stray_items=()
@@ -259,6 +261,91 @@ pull_if_clean() {
   fi
 }
 
+resolve_lefthook() {
+  if command -v lefthook >/dev/null 2>&1; then
+    command -v lefthook
+    return 0
+  fi
+
+  if [ -x "$HOME/.local/share/mise/shims/lefthook" ]; then
+    printf '%s\n' "$HOME/.local/share/mise/shims/lefthook"
+    return 0
+  fi
+
+  return 1
+}
+
+resolve_npm() {
+  if command -v npm >/dev/null 2>&1; then
+    command -v npm
+    return 0
+  fi
+
+  if [ -x "$HOME/.local/share/mise/shims/npm" ]; then
+    printf '%s\n' "$HOME/.local/share/mise/shims/npm"
+    return 0
+  fi
+
+  return 1
+}
+
+prepare_hook_dependencies() {
+  local repo_path=$1
+  local npm_cmd
+
+  if [ -d "$repo_path/node_modules" ]; then
+    return 0
+  fi
+
+  if [ ! -f "$repo_path/package.json" ] && [ ! -f "$repo_path/package-lock.json" ]; then
+    return 0
+  fi
+
+  if [ ! -f "$repo_path/package.json" ] || [ ! -f "$repo_path/package-lock.json" ]; then
+    warn "node_modules missing but package manifest is incomplete; skipping hook install: $repo_path"
+    return 1
+  fi
+
+  if ! npm_cmd=$(resolve_npm); then
+    warn "node_modules missing but npm command is unavailable; skipping hook install: $repo_path"
+    return 1
+  fi
+
+  if (cd "$repo_path" && "$npm_cmd" ci --no-audit --no-fund); then
+    return 0
+  fi
+
+  warn "failed to prepare hook dependencies with npm ci; skipping hook install: $repo_path"
+  return 1
+}
+
+install_hooks_if_available() {
+  local repo_path=$1
+  local lefthook_cmd
+
+  if [ ! -f "$repo_path/lefthook.yml" ]; then
+    return
+  fi
+
+  if ! lefthook_cmd=$(resolve_lefthook); then
+    warn "lefthook.yml found but lefthook command is unavailable; skipping hook install: $repo_path"
+    hooks_skipped=$((hooks_skipped + 1))
+    return
+  fi
+
+  if ! prepare_hook_dependencies "$repo_path"; then
+    hooks_skipped=$((hooks_skipped + 1))
+    return
+  fi
+
+  if (cd "$repo_path" && "$lefthook_cmd" install); then
+    hooks_installed=$((hooks_installed + 1))
+  else
+    warn "failed to install lefthook hooks; continuing: $repo_path"
+    hooks_skipped=$((hooks_skipped + 1))
+  fi
+}
+
 enumerate_skills() {
   local repo_path=$1
   local skills_path=$2
@@ -322,6 +409,8 @@ process_repo() {
     pull_if_clean "$repo_path"
   fi
 
+  install_hooks_if_available "$repo_path"
+
   while IFS=$'\t' read -r name canonical; do
     if [ -z "$name" ] || [ -z "$canonical" ]; then
       continue
@@ -359,6 +448,8 @@ print_summary() {
   printf '  clone failures: %d\n' "$clone_failures"
   printf '  registry clone failures: %d\n' "$registry_clone_failures"
   printf '  link failures: %d\n' "$link_failures"
+  printf '  hooks installed: %d\n' "$hooks_installed"
+  printf '  hooks skipped: %d\n' "$hooks_skipped"
 
   if [ "$conflicts" -gt 0 ]; then
     printf '\nConflicts left untouched:\n'

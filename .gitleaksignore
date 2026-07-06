@@ -1,0 +1,6 @@
+# vendored MCP docs sample access token; documented placeholder value, not a live secret
+e6ee5e40cc73138eb3792976813771e637bd73f3:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/tutorials/security/authorization.mdx:generic-api-key:111
+# vendored MCP docs sample OAuth client secret; tutorial fixture value, not a live secret
+e6ee5e40cc73138eb3792976813771e637bd73f3:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/tutorials/security/authorization.mdx:generic-api-key:646
+# vendored MCP docs sample JWT; localhost tutorial token, not a live secret
+e6ee5e40cc73138eb3792976813771e637bd73f3:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/tutorials/security/authorization.mdx:jwt:252
