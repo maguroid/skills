@@ -119,6 +119,15 @@ bash "$HOME/ghq/github.com/maguroid/skills/bootstrap.sh"
 
 After a sync, validate a sample of the synced skills through `$HOME/.agents/skills/<name>` using the active agent's validation workflow.
 
+## Auto Push (Claude Code Stop hook)
+
+The push direction is automated for the **two built-in public repos only** (`maguroid/skills`, `maguroid/cc-skills`), mirroring the hub-repo auto-sync model (introduced 2026-07-06):
+
+- The user's global Claude Code settings run `global-skill-workflow/scripts/auto_sync.sh` on every Stop. When a target repo is dirty on `main`, it commits everything (`chore: スキル自動同期 (日時)`) and pushes; unpushed commits from earlier blocked pushes are also retried. Clean repos are a no-op.
+- Registry repos (`$HOME/.agents/skills-repos.local.md`) are **deliberately excluded**: they are team-shared repos or ordinary projects that contain more than skills, so whole-repo auto-commit is wrong there — commit those manually.
+- The secret gate is each repo's lefthook + secretlint pre-push hook (both built-in repos are wired). A blocked push leaves the commit local and surfaces a `systemMessage`; repair per the recovery flow in `harness-sync` (same semantics as the dotfiles repo).
+- Consequence for agents: after editing a skill in a built-in repo you may still commit deliberately with a descriptive message (preferred) — the hook only sweeps up what's left. On non-`main` branches the hook does nothing.
+
 ## Git Hygiene
 
 Before and after changes, check the canonical repo you touched:
