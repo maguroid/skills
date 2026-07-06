@@ -14,9 +14,11 @@ Zeno is installed as a Zim module:
 - Runtime executable: `$HOME/.zsh.d/.zim/modules/zeno.zsh/bin/zeno`
 - Live config: `$HOME/.config/zeno/config.yml`
 - History database: `$HOME/.local/share/zeno/history.db`
-- Key binding hook: `$HOME/.zsh.d/hooks/bindings/zeno.zsh`
+- Key binding hook: `$HOME/.zsh.d/hooks/tools/zeno.zsh` (chezmoi-managed)
 
-`$HOME/.zsh.d/hooks/bindings/zeno.zsh` binds Space to `zeno-auto-snippet` when `ZENO_LOADED` is set.
+`$HOME/.zsh.d/hooks/tools/zeno.zsh` binds Space to `zeno-auto-snippet`, Tab to `zeno-completion`, and `^Xx` to `zeno-insert-snippet` when `ZENO_LOADED` is set. It sets key bindings only; the Zim module loads zeno itself.
+
+The Zim module is the single install. A legacy clone at `$HOME/.local/share/zeno.zsh` was removed on 2026-07-06; if a shell reports `zeno-bootstrap.zsh: missing required directory`, check for a stale `ZENO_ROOT` in the environment (e.g. a long-running tmux server's global environment) — the bootstrap honors a pre-set `ZENO_ROOT` over its own location.
 
 ## Editing Workflow
 
