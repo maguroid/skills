@@ -140,8 +140,12 @@ manual transfer. For each MISSING/WARNING item, tell the user what command to ru
   registering the public key on GitHub.
 - Orca hook missing → confirm whether the user actually wants Orca on this machine; if
   yes, installing the Orca app is the prerequisite, the hook file follows from that.
-- A real (non-symlinked) directory under `~/.agents/skills` → this is drift, not a sync
-  gap; hand off to `global-skill-workflow`'s conflict-handling, don't resolve it here.
+- A real (non-symlinked) directory under `~/.agents/skills` → two legitimate resolutions:
+  if it's an **intentional machine-local skill** (e.g. `orca-cli`, installed by the Orca
+  app), add its name (one per line, `#` comments allowed) to
+  `~/.agents/skills-local-allow.txt` — a machine-local, non-chezmoi-managed allowlist
+  that doctor reads; listed skills report OK instead of WARNING. Otherwise it's drift;
+  hand off to `global-skill-workflow`'s conflict-handling, don't resolve it here.
 - Hub MISSING → the agent CAN fix this one: re-run `chezmoi apply` (or `chezmoi update`),
   which re-triggers the hub sync script (prefix `HARNESS_SYNC_FORCE=1` if the last run
   was within the hour, or the throttle will skip it).
