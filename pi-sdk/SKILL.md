@@ -1,9 +1,9 @@
 ---
 name: pi-sdk
-description: Build, embed, or automate the Pi coding agent (earendil-works/pi, formerly badlogic/pi-mono) — SDK usage (createAgentSession / defineTool), headless & cron execution (--mode json / rpc), and OpenAI Codex subscription (ChatGPT Plus/Pro OAuth) auth. Use whenever a task involves Pi Agent, pi coding agent, @earendil-works/pi-* or @mariozechner/pi-* packages, pi.dev, embedding Pi in a Node/TypeScript app, LLM extraction via Codex subscription auth, or the pi CLI. Carries the correct package names (the project was renamed), auth setup, and known pitfalls so agents don't implement against stale or wrong information.
+description: Build, embed, or automate the Pi coding agent (earendil-works/pi, formerly badlogic/pi-mono) — SDK usage (createAgentSession / defineTool), headless & cron execution (--mode json / rpc), and subscription OAuth auth (OpenAI Codex ChatGPT Plus/Pro, Anthropic Claude Pro/Max, GitHub Copilot). Use whenever a task involves Pi Agent, pi coding agent, @earendil-works/pi-* or @mariozechner/pi-* packages, pi.dev, embedding Pi in a Node/TypeScript app, LLM extraction via subscription auth, or the pi CLI. Carries the correct package names (the project was renamed), auth setup, and known pitfalls so agents don't implement against stale or wrong information.
 ---
 
-# Pi SDK — Pi coding agent の組み込み・自動実行・Codex サブスク認証
+# Pi SDK — Pi coding agent の組み込み・自動実行・サブスク認証
 
 Pi は Mario Zechner 氏による OSS のコーディングエージェント。CLI としてだけでなく
 SDK として Node/TypeScript プロセスに直接組み込める。このスキルは 2026-07 時点の
@@ -19,6 +19,35 @@ https://pi.dev/docs/latest / https://github.com/earendil-works/pi
   `@earendil-works/pi-ai`（マルチプロバイダ LLM API）、`@earendil-works/pi-agent-core`
 - **`@mariozechner/pi-*` は DEPRECATED。絶対に使わない**（Web 上の古い記事・LLM の
   学習知識は旧名で書かれていることが多い）
+
+## パッケージのレイヤー構造（coding-agent を選ぶ前に）
+
+モノレポは4層（下→上）: `pi-ai`（マルチプロバイダLLM API）→ `pi-agent-core`（ツール実行
+ループを持つ状態管理エージェント）→ `pi-coding-agent`（このスキルの主対象。コーディング
+特化の組み込みツール＋認証永続化＋TUI＋各種実行モード）→ `pi-tui`（CLI描画）。
+別リポジトリで `pi-orchestrator`（マルチエージェント統括、experimental・API不安定）もある。
+
+**`pi-agent-core` を直接使うべき場面**: `read`/`write`/`edit`/`bash` などコーディング用
+ツールが不要で、独自ドメインのツール（外部API呼び出し等）だけを持つ専用エージェントを
+組みたいとき。ツール実行モード（`parallel`/`sequential`をツール単位で制御）や
+`beforeToolCall`/`afterToolCall`/`shouldStopAfterTurn` などの細かいフックが必要なとき。
+セッション永続化・TUI・サブスク認証といった `pi-coding-agent` の付帯機能が不要／邪魔
+（自前アプリへの組み込みで独自の永続化層を使いたい等）なとき。
+
+**認証は「丸ごと自前」にはならない**: `pi-agent-core` が乗る `pi-ai` 層に、プロバイダ
+ごとの OAuth（Anthropic Claude Pro/Max・OpenAI Codex・GitHub Copilot、
+`provider.auth.oauth.login()/refresh()/toAuth()`）と 25+ プロバイダの環境変数ベース
+APIキー自動解決がすでに実装済み（`npx @earendil-works/pi-ai login` で単体ログインも
+可能）。`pi-ai` のデフォルト `CredentialStore` は**インメモリ**なので、自分で書く必要が
+あるのは `read`/`modify`/`delete` の3メソッドを持つファイルバックエンドの
+`CredentialStore` 実装だけ（`pi-coding-agent` の `AuthStorage` はこれを
+`~/.pi/agent/auth.json` に対して実装済みのもの。単体 import して流用する手もある）。
+
+**`pi-coding-agent` を選ぶ実質的な理由**（bukken-watch/watson の実例）: コーディング用
+組み込みツール一式は不要でも、認証の永続化・トークンリフレッシュを自作したくない場合、
+`AuthStorage`/`ModelRegistry` をそのまま使うために選ばれている。ツールなし1回呼び出し
+（下記「抽出・分類だけしたい場合」）のような用途なら、実は `pi-agent-core` 単体でも
+十分書けることは念頭に置く。
 
 ## SDK の基本形
 
@@ -94,17 +123,36 @@ const { session } = await createAgentSession({ customTools: [myTool] });
   プロセスが exit しないことがあるため、CLI の終端で明示的に `process.exit(0)`
   すること**（launchd / cron 実行でのハング防止に必須）
 
-## Codex サブスクリプション認証（ChatGPT Plus/Pro OAuth）
+## サブスクリプション認証（OAuth）
 
-公式サポート。OpenAI 自身が「Codex for OSS」プログラムで公認している。
+`/login` で選べるサブスク型プロバイダは3つ（`docs/providers.md` に明記）:
 
-1. 対話モードで `pi` を起動し `/login` → プロバイダ `ChatGPT Plus/Pro (Codex)` を選択
-2. 認証方式は **Browser OAuth** または **Device Code**（v0.77.0〜）。SSH 先や
+- **ChatGPT Plus/Pro (Codex)**
+- **Claude Pro/Max**（Anthropic。2026-07-08 時点で pi v0.80.3 で確認済み）
+- **GitHub Copilot**
+
+いずれも共通の流れ:
+
+1. 対話モードで `pi` を起動し `/login` → プロバイダを選択
+2. Codex の認証方式は **Browser OAuth** または **Device Code**（v0.77.0〜）。SSH 先や
    ヘッドレス環境ではデバイスコードを使う
 3. トークンは `~/.pi/agent/auth.json`（パーミッション 0600）に保存され、期限切れ時は
    **自動リフレッシュ**される。cron 等の非対話実行はこのファイルがあれば動く
 4. SDK からは `AuthStorage.create()` がこのファイルを読むため、CLI で一度ログイン
-   しておけば追加設定は不要。auth.json 内のキーは `openai-codex`
+   しておけば追加設定は不要。auth.json 内のキーは Codex が `openai-codex`
+
+### Codex（ChatGPT Plus/Pro）
+
+公式サポート。OpenAI 自身が「Codex for OSS」プログラムで公認している。
+
+### Claude Pro/Max
+
+Anthropic のサブスク認証も有効。**ただし課金の扱いが Claude Code と異なる**:
+サードパーティハーネス（Pi 含む）からの利用は Claude Pro/Max プランの通常利用枠には
+入らず、[extra usage](https://claude.ai/settings/usage) 扱いでトークン従量課金される
+（`docs/providers.md` に明記: "Third-party harness usage draws from extra usage and is
+billed per token, not against Claude plan limits"）。プラン内で使い放題という誤解を
+しないこと。
 
 API キー方式（30+ プロバイダ）も同じ auth.json に共存できる。`key` フィールドは
 リテラルのほか `"$ENV_VAR"` やシェルコマンド `"!security find-generic-password ..."` も可。
