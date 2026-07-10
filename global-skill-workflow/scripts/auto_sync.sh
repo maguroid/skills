@@ -2,7 +2,7 @@
 # Claude Code の Stop フックから呼ばれ、正本スキルリポジトリの変更を
 # 自動コミット・プッシュする（ハブリポジトリの自動同期と同じ運用モデル）。
 #
-# 対象は組み込み2リポジトリのみ。レジストリ（$HOME/.agents/skills-repos.local.md)の
+# 対象は組み込み3リポジトリのみ。レジストリ（$HOME/.agents/skills-repos.local.md)の
 # 追加リポジトリは、チーム共有リポジトリやスキル以外を含む通常プロジェクトのため
 # リポジトリ全体の自動コミットは行わない（手動コミットが正）。
 #
@@ -13,6 +13,7 @@ set -u
 REPOS=(
   "$HOME/ghq/github.com/maguroid/skills"
   "$HOME/ghq/github.com/maguroid/cc-skills"
+  "$HOME/ghq/github.com/maguroid/codex-skills"
 )
 
 failures=()

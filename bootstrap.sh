@@ -5,6 +5,7 @@ REGISTRY_FILE="$HOME/.agents/skills-repos.local.md"
 CHEZMOI_REGISTRY_FILE="$HOME/.local/share/chezmoi/dot_agents/skills-repos.local.md"
 AGENTS_DIR="$HOME/.agents/skills"
 CLAUDE_DIR="$HOME/.claude/skills"
+CODEX_DIR="$HOME/.codex/skills"
 
 repo_paths=()
 repo_githubs=()
@@ -42,9 +43,10 @@ add_repo() {
   local source=$5
   local i
 
-  if [ "$scheme" != "claude-only" ]; then
-    scheme="agent-neutral"
-  fi
+  case "$scheme" in
+    agent-neutral | claude-only | codex-only) ;;
+    *) scheme="agent-neutral" ;;
+  esac
 
   for ((i = 0; i < ${#repo_paths[@]}; i += 1)); do
     if [ "${repo_paths[$i]}" = "$path" ]; then
@@ -127,6 +129,9 @@ read_registry_file() {
         ;;
       '- Symlink scheme:'*)
         case "$line" in
+          *codex-only*)
+            pending_scheme="codex-only"
+            ;;
           *claude-only*)
             pending_scheme="claude-only"
             ;;
@@ -160,6 +165,20 @@ record_stray() {
 
   strays=$((strays + 1))
   stray_items+=("$link ($detail)")
+}
+
+record_stray_link() {
+  local link=$1
+  local canonical=$2
+  local detail=$3
+  local target
+
+  if [ -L "$link" ]; then
+    target=$(readlink "$link")
+    if [ "$target" = "$canonical" ]; then
+      record_stray "$link" "$detail"
+    fi
+  fi
 }
 
 reconcile_link() {
@@ -387,8 +406,6 @@ process_repo() {
   local source=$5
   local name
   local canonical
-  local agents_link
-  local target
   local repo_existed=0
 
   if [ -n "$skills_path" ]; then
@@ -416,19 +433,22 @@ process_repo() {
       continue
     fi
 
-    if [ "$scheme" = "agent-neutral" ]; then
-      reconcile_link "$canonical" "$AGENTS_DIR/$name"
-    else
-      agents_link="$AGENTS_DIR/$name"
-      if [ -L "$agents_link" ]; then
-        target=$(readlink "$agents_link")
-        if [ "$target" = "$canonical" ]; then
-          record_stray "$agents_link" "claude-only skill linked into agent-neutral discovery"
-        fi
-      fi
-    fi
-
-    reconcile_link "$canonical" "$CLAUDE_DIR/$name"
+    case "$scheme" in
+      agent-neutral)
+        reconcile_link "$canonical" "$AGENTS_DIR/$name"
+        reconcile_link "$canonical" "$CLAUDE_DIR/$name"
+        ;;
+      claude-only)
+        record_stray_link "$AGENTS_DIR/$name" "$canonical" "claude-only skill linked into agent-neutral discovery"
+        record_stray_link "$CODEX_DIR/$name" "$canonical" "claude-only skill linked into Codex discovery"
+        reconcile_link "$canonical" "$CLAUDE_DIR/$name"
+        ;;
+      codex-only)
+        record_stray_link "$AGENTS_DIR/$name" "$canonical" "codex-only skill linked into agent-neutral discovery"
+        record_stray_link "$CLAUDE_DIR/$name" "$canonical" "codex-only skill linked into Claude discovery"
+        reconcile_link "$canonical" "$CODEX_DIR/$name"
+        ;;
+    esac
   done < <(enumerate_skills "$repo_path" "$skills_path")
 }
 
@@ -471,9 +491,10 @@ main() {
 
   add_repo "$HOME/ghq/github.com/maguroid/skills" "maguroid/skills" "agent-neutral" "" "builtin"
   add_repo "$HOME/ghq/github.com/maguroid/cc-skills" "maguroid/cc-skills" "claude-only" "" "builtin"
+  add_repo "$HOME/ghq/github.com/maguroid/codex-skills" "maguroid/codex-skills" "codex-only" "" "builtin"
   read_registries
 
-  if ! mkdir -p "$AGENTS_DIR" "$CLAUDE_DIR"; then
+  if ! mkdir -p "$AGENTS_DIR" "$CLAUDE_DIR" "$CODEX_DIR"; then
     warn "failed to create discovery directories"
     link_failures=$((link_failures + 1))
     print_summary
