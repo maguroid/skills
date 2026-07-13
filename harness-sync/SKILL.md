@@ -226,7 +226,9 @@ needed. Two behaviors to know:
 
 - **Throttle**: if the 20/30 stages ran successfully within the last hour they print a
   スキップ banner and do nothing; prefix with `HARNESS_SYNC_FORCE=1` when you need them
-  to run right now (e.g. another machine just pushed a new skill).
+  to run right now (e.g. another machine just pushed a new skill). Hub sync ignores the
+  throttle when any registered hub path is missing, so path migration never waits for
+  the one-hour window.
 - **bootstrap pull results**: the bootstrap Summary now includes `pulled` /
   `pull skipped (dirty)` / `pull failures`. A pull failure (e.g. a repo sitting on a WIP
   branch with no upstream) is a warning only, never fatal — mention it to the user and
