@@ -21,7 +21,7 @@ invented — these are already wired up:
 | Dotfiles (`~/.zsh.d`, `~/.claude/{CLAUDE.md,settings.json,keybindings.json}`, `~/.codex/{config.toml,AGENTS.md,rules}`, `~/.config/mise`, ...) | `git@github.com:maguroid/dotfiles.git` (branch `main`), local checkout `~/.local/share/chezmoi` | chezmoi (`chezmoi init --apply` first time, `chezmoi update` thereafter) |
 | Runtime/CLI tools (node, uv, etc.) | `~/.config/mise/config.toml` (itself chezmoi-managed) | mise (`mise install`, triggered automatically by a chezmoi run_onchange hook whenever the config changes) |
 | Global skills (`global-skill-workflow`, `feedback-assetization`, this skill, ...) | `maguroid/skills` (agent-neutral) + `maguroid/cc-skills` (Claude Code-only) + `maguroid/codex-skills` (Codex-only) + any private repos in `~/.agents/skills-repos.local.md` | pull: clone + pull + `bootstrap.sh` (pulls clean registered repos `--ff-only`, then symlinks into `~/.agents/skills`, `~/.claude/skills`, or `~/.codex/skills` according to scope), run on **every** chezmoi apply via a run_after hook (1-hour throttle). push: the three built-in repos auto-commit+push via a global Claude Code Stop hook (`global-skill-workflow/scripts/auto_sync.sh`); registry repos stay manual — see `global-skill-workflow` |
-| Hub repos, incl. agent memory (each hub — e.g. Workspace-Me, Workspace-Foo — carries its `agent-memory/`) | hub registry `~/.agents/hubs.md` (chezmoi-managed; each hub entry declares `- リモート:` and `- リモート名:`) | `run_after_30-sync-hubs.sh` on **every** chezmoi apply (1-hour throttle): clone if missing, `git pull --ff-only` if present and clean, warn-and-skip if dirty/diverged. Memory *operation* (GC, briefs, conventions) stays with `feedback-assetization` |
+| Hub repos, incl. agent memory (each hub — e.g. Workspace-Me, Workspace-Foo — carries its `agent-memory/`) | hub registry `~/.agents/hubs.md` (chezmoi-managed; `- 自動同期: true` enables global Stop auto-push) | path migration runs before hub sync; then missing repos are cloned and clean repos pulled. The global Stop hook commits/pushes every dirty or ahead auto-sync hub, independent of cwd. Memory *operation* stays with `feedback-assetization` |
 
 Credentials and machine-specific state are **not** distributed by any of the above and
 must be established per machine: `~/.llmx/credentials`, `~/.config/gogcli/credentials.json`,
@@ -87,6 +87,10 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
      each clean registered repo and wires up `~/.agents/skills/*` and
      `~/.claude/skills/*` and `~/.codex/skills/*` symlinks. See `global-skill-workflow` for what this script does
      in detail — don't re-explain it here.
+   - `run_after_25-migrate-workspace-paths.sh` migrates known legacy Workspace paths to
+     ghq before hub sync. A lone legacy repo is moved with dirty state intact. When both
+     paths exist, Git history and working-tree state choose the safe winner; redundant
+     copies go to `~/.Trash`. Ambiguous states are left untouched with a warning.
    - `run_after_30-sync-hubs.sh` reads the hub registry `~/.agents/hubs.md` and,
      per hub: clones if missing (renaming the remote from `origin` when the entry's
      `- リモート名:` says so — e.g. Workspace-Me uses `github`); if already present and
@@ -94,6 +98,9 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
      hub failures do not fail the apply. Since each hub carries its `agent-memory/`, the
      one-liner covers agent-memory availability too — memory *operation* remains
      `feedback-assetization`'s domain.
+   - `run_after_35-refresh-workspace-remote-control.sh` recreates existing
+     `claude-rc-me` / `claude-rc-hsg` tmux sessions only when their start path is a
+     migrated legacy Workspace.
 
    The 20/30 stages are `run_after` hooks: they run on **every** apply, but with a
    1-hour throttle — within an hour of the last successful run they print
@@ -119,6 +126,9 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
    - **Tool path-conflict check**: any tool whose `command -v` resolves outside
      `~/.local/share/mise` → WARNING (duplicate brew/system install shadow-managed by
      mise; see Conflict Resolution Policy).
+   - **Workspace migration checks**: legacy Workspace paths or parent-root AGENTS links,
+     wrong Workspace remotes, a missing global Workspace hook, and stale remote-control
+     start paths are reported.
 
 4. Walk the user through each MISSING item — see "Handling doctor Gaps" below. Do not
    treat the run as complete until doctor is clean or the user has explicitly accepted
@@ -193,6 +203,10 @@ default**, after inspection.
   own auto-sync hooks pushing from the machine where work happens, so a dirty follower
   hub usually means work happened here that those hooks will handle, or that needs a
   human decision.
+- **Workspace path migration**: a single legacy copy is moved, not copied, so dirty and
+  unpushed work survives. If both paths exist, automation proceeds only when history and
+  dirty state identify a safe winner; redundant copies move to `~/.Trash`. If doctor
+  still reports a legacy path, inspect both repos and decide manually.
 
 Note on `-v`: `chezmoi apply -v` / `update -v` shows each file's diff through a pager,
 which stops after every file on a drift-heavy machine (it looks hung at a `lines 1-37`
@@ -217,6 +231,10 @@ needed. Two behaviors to know:
   `pull skipped (dirty)` / `pull failures`. A pull failure (e.g. a repo sitting on a WIP
   branch with no upstream) is a warning only, never fatal — mention it to the user and
   move on.
+- **Workspace Stop auto-push**: every hub marked `- 自動同期: true` is checked at each
+  Claude/Codex Stop, regardless of cwd. Dirty hubs are committed and pushed; clean hubs
+  with ahead commits retry push. A short-lived lock prevents simultaneous Stop hooks
+  from racing.
 
 If the update stops on an overwrite prompt (or fails non-interactively with a local
 diff), follow the Conflict Resolution Policy above. Run `bash ~/.local/share/chezmoi/scripts/doctor.sh` afterward if there's
