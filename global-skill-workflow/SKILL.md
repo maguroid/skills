@@ -1,6 +1,6 @@
 ---
 name: global-skill-workflow
-description: Create, update, migrate, sync, or organize global skills. Use when an agent is asked to make a global skill, install a personal/global skill, update an existing global skill, sync skills from the remote repository to the local machine, move skills between discovery directories, or manage symlinks for skill discovery. Canonical repos are `$HOME/ghq/github.com/maguroid/skills` (personal, default), `$HOME/ghq/github.com/maguroid/cc-skills` (Claude Code-only), and `$HOME/ghq/github.com/maguroid/codex-skills` (Codex-only), plus any private repos registered in the local registry `$HOME/.agents/skills-repos.local.md`; discovery symlinks live in `$HOME/.agents/skills`, `$HOME/.claude/skills`, and `$HOME/.codex/skills`.
+description: Create, update, migrate, sync, or organize global and workspace-root-scoped skills. Use when an agent is asked to make a global skill, install a personal/global skill, update an existing skill, sync skills from remote repositories, move skills between discovery directories, manage symlinks for skill discovery, or expose a workspace's local skills from the higher-level folder that is actually opened as the harness root. Global canonical repos are `$HOME/ghq/github.com/maguroid/skills` (personal, default), `$HOME/ghq/github.com/maguroid/cc-skills` (Claude Code-only), and `$HOME/ghq/github.com/maguroid/codex-skills` (Codex-only), plus private registry repos. Workspace projections are declared in `$HOME/.agents/workspace-skills.local.md`.
 ---
 
 # Global Skill Workflow
@@ -10,6 +10,8 @@ description: Create, update, migrate, sync, or organize global skills. Use when 
 Use `$HOME/ghq/github.com/maguroid/skills` as the canonical source for user-created global skills. Make both `$HOME/.agents/skills/<skill-name>` and `$HOME/.claude/skills/<skill-name>` symlinks to each canonical skill directory.
 
 Use the active agent's system skill authoring and validation workflow when creating or updating skill content. This skill controls placement, linking, migration, and validation targets.
+
+For workspace-specific skills, keep the canonical directories inside the owning workspace repository at `.agents/skills/<skill-name>`. When sessions open a higher-level owner or organization folder instead of that repository, project each canonical skill into both `<opened-root>/.agents/skills` and `<opened-root>/.claude/skills`. Do not globalize context-specific skills merely to make them discoverable.
 
 ## Choosing the Canonical Repo
 
@@ -35,8 +37,43 @@ The Sync Workflow below covers all registered repos at once via `bootstrap.sh` (
 - Claude discovery directory: `$HOME/.claude/skills`
 - Codex discovery directory: `$HOME/.codex/skills`
 - Skill authoring and validation tools: use the active agent's system skills or built-in skill tooling.
+- Workspace projection registry: `$HOME/.agents/workspace-skills.local.md` (machine-local/private, chezmoi-managed)
+- Workspace projection reconciler: `global-skill-workflow/scripts/reconcile_workspace_skills.sh`
 
 Use `$HOME` rather than an OS-user-specific absolute home path in skill instructions. Do not use a non-hidden `$HOME/claude/skills` directory unless the user explicitly configures or requests that alternate location.
+
+## Workspace-root-scoped Skills
+
+Use this layout when a workspace repository owns context-specific skills but the harness is normally opened from a parent owner/organization directory:
+
+```text
+<opened-root>/.agents/skills/<name>  -> <workspace>/.agents/skills/<name>
+<opened-root>/.claude/skills/<name>  -> <workspace>/.agents/skills/<name>
+<workspace>/.agents/skills/<name>    # canonical, Git-tracked
+```
+
+Keep `.agents/skills` as the only real skill directory inside the workspace. If the workspace also supports being opened directly, make each `<workspace>/.claude/skills/<name>` a relative symlink to `../../.agents/skills/<name>`.
+
+Register projections in `$HOME/.agents/workspace-skills.local.md`:
+
+```markdown
+### Workspace-Example
+
+- Root: `$HOME/ghq/github.com/example-owner`
+- Skills: `$HOME/ghq/github.com/example-owner/Workspace-Example/.agents/skills`
+```
+
+The registry may contain private paths or organization names, so manage it through the private chezmoi repository and never commit its contents to this public repository. The reconciler also reads the chezmoi source copy so changes can be tested before apply.
+
+Run the reconciler after workspace repositories have been cloned or pulled:
+
+```sh
+bash "$HOME/ghq/github.com/maguroid/skills/global-skill-workflow/scripts/reconcile_workspace_skills.sh"
+```
+
+It creates missing discovery links, leaves correct links unchanged, reports real directories or foreign symlinks as conflicts without overwriting them, and reports stale links without deleting them. A chezmoi post-apply hook should invoke it after hub synchronization. Skill discovery is resolved at session start, so verify changes in a new session rooted at each registered `Root`.
+
+When consolidating pre-existing duplicates, diff the harness directories first. Merge the newest rules into the workspace `.agents/skills` canonical copy, replace `.claude/skills/<name>` with a relative link, and only then enable the parent-root projection. Do not choose one side solely by directory name or timestamp.
 
 ## New Machine Bootstrap
 
@@ -129,6 +166,8 @@ bash "$HOME/ghq/github.com/maguroid/skills/bootstrap.sh"
 
 After a sync, validate a sample of the synced skills through the discovery directory selected by each repo's scheme using the active agent's validation workflow.
 
+Workspace-local projections are a separate, non-global layer. After the workspace repositories are present, run `global-skill-workflow/scripts/reconcile_workspace_skills.sh`; the configured chezmoi hub-sync chain normally does this automatically. Do not link these skills into `$HOME/.agents/skills`, because workspace-specific names such as `tasks` or `daily-task` can legitimately have different behavior in different roots.
+
 ## Auto Push (Claude Code Stop hook)
 
 The push direction is automated for the **three built-in public repos only** (`maguroid/skills`, `maguroid/cc-skills`, `maguroid/codex-skills`), mirroring the hub-repo auto-sync model (introduced 2026-07-06):
@@ -156,3 +195,5 @@ Do not revert pre-existing changes in the canonical repo. Report unrelated dirty
 - The active agent's skill validator passes for the symlinked skill.
 - Agent-specific metadata files are present and valid only when required by that agent.
 - No machine-specific absolute home paths remain in authored skill files; use `$HOME`-relative paths for discovery and canonical directories.
+- Workspace-scoped skills have one real canonical directory under the owning workspace, and both discovery links at the actually opened root resolve to it.
+- Workspace-local names are not leaked into global discovery directories.

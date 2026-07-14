@@ -1,4 +1,4 @@
 interface:
   display_name: "Global Skill Workflow"
-  short_description: "Create global skills from the canonical repo"
-  default_prompt: "Use $global-skill-workflow to create or update a global skill in the canonical skills repository."
+  short_description: "Manage global and workspace-scoped skill discovery"
+  default_prompt: "Use $global-skill-workflow to create, update, migrate, sync, or expose a global or workspace-root-scoped skill from its canonical repository."
