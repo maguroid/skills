@@ -44,7 +44,7 @@ add_repo() {
   local i
 
   case "$scheme" in
-    agent-neutral | claude-only | codex-only) ;;
+    agent-neutral | claude-only | codex-only | workspace-only) ;;
     *) scheme="agent-neutral" ;;
   esac
 
@@ -129,6 +129,9 @@ read_registry_file() {
         ;;
       '- Symlink scheme:'*)
         case "$line" in
+          *workspace-only*)
+            pending_scheme="workspace-only"
+            ;;
           *codex-only*)
             pending_scheme="codex-only"
             ;;
@@ -447,6 +450,11 @@ process_repo() {
         record_stray_link "$AGENTS_DIR/$name" "$canonical" "codex-only skill linked into agent-neutral discovery"
         record_stray_link "$CLAUDE_DIR/$name" "$canonical" "codex-only skill linked into Claude discovery"
         reconcile_link "$canonical" "$CODEX_DIR/$name"
+        ;;
+      workspace-only)
+        record_stray_link "$AGENTS_DIR/$name" "$canonical" "workspace-only skill linked into agent-neutral discovery"
+        record_stray_link "$CLAUDE_DIR/$name" "$canonical" "workspace-only skill linked into Claude discovery"
+        record_stray_link "$CODEX_DIR/$name" "$canonical" "workspace-only skill linked into Codex discovery"
         ;;
     esac
   done < <(enumerate_skills "$repo_path" "$skills_path")

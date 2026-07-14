@@ -20,7 +20,7 @@ invented — these are already wired up:
 |---|---|---|
 | Dotfiles (`~/.zsh.d`, `~/.claude/{CLAUDE.md,settings.json,keybindings.json}`, `~/.codex/{config.toml,AGENTS.md,rules}`, `~/.config/mise`, ...) | `git@github.com:maguroid/dotfiles.git` (branch `main`), local checkout `~/.local/share/chezmoi` | chezmoi (`chezmoi init --apply` first time, `chezmoi update` thereafter) |
 | Runtime/CLI tools (node, uv, etc.) | `~/.config/mise/config.toml` (itself chezmoi-managed) | mise (`mise install`, triggered automatically by a chezmoi run_onchange hook whenever the config changes) |
-| Global skills (`global-skill-workflow`, `feedback-assetization`, this skill, ...) | `maguroid/skills` (agent-neutral) + `maguroid/cc-skills` (Claude Code-only) + `maguroid/codex-skills` (Codex-only) + any private repos in `~/.agents/skills-repos.local.md` | pull: clone + pull + `bootstrap.sh` (pulls clean registered repos `--ff-only`, then symlinks into `~/.agents/skills`, `~/.claude/skills`, or `~/.codex/skills` according to scope), run on **every** chezmoi apply via a run_after hook (1-hour throttle). push: the three built-in repos auto-commit+push via a global Claude Code Stop hook (`global-skill-workflow/scripts/auto_sync.sh`); registry repos stay manual — see `global-skill-workflow` |
+| Global and registered skill repos (`global-skill-workflow`, `feedback-assetization`, this skill, ...) | `maguroid/skills` (agent-neutral) + `maguroid/cc-skills` (Claude Code-only) + `maguroid/codex-skills` (Codex-only) + any private repos in `~/.agents/skills-repos.local.md` | pull: clone + pull + `bootstrap.sh` (pulls clean registered repos `--ff-only`, then symlinks into home-global discovery directories according to scope; `workspace-only` entries are fetched but not globalized), run on **every** chezmoi apply via a run_after hook (1-hour throttle). push: the three built-in repos auto-commit+push via a global Claude Code Stop hook (`global-skill-workflow/scripts/auto_sync.sh`); registry repos stay manual — see `global-skill-workflow` |
 | Workspace-local skills | Each owning workspace repository's `.agents/skills` | `$HOME/.agents/workspace-skills.local.md` maps the owner/organization folder actually opened as the harness root to its canonical workspace skills. After hub sync, the `global-skill-workflow` reconciler projects links into that root's `.agents/skills` and `.claude/skills`; it never globalizes them. |
 | Hub repos, incl. agent memory (each hub — e.g. Workspace-Me, Workspace-Foo — carries its `agent-memory/`) | hub registry `~/.agents/hubs.md` (chezmoi-managed; `- 自動同期: true` enables global Stop auto-push) | path migration runs before hub sync; then missing repos are cloned and clean repos pulled. The global Stop hook commits/pushes every dirty or ahead auto-sync hub, independent of cwd. Memory *operation* stays with `feedback-assetization` |
 
@@ -130,7 +130,8 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
      "behind" can be stale).
    - **Workspace-local skill projections** (from `~/.agents/workspace-skills.local.md`):
      missing canonical directories, missing root discovery links, wrong targets, and
-     non-symlink conflicts are reported.
+     non-symlink conflicts are reported. A workspace canonical skill that is also linked
+     from a home-global discovery directory is reported as a scope leak.
    - **Tool path-conflict check**: any tool whose `command -v` resolves outside
      `~/.local/share/mise` → WARNING (duplicate brew/system install shadow-managed by
      mise; see Conflict Resolution Policy).
