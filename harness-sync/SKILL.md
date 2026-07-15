@@ -39,8 +39,9 @@ sync section on that machine, or doctor's hints, rather than this public skill).
 credentials (`~/.llmx/credentials`, `~/.config/gogcli/credentials.json`) are therefore
 fetched from the main machine with `scp` rather than "an old machine" in the abstract.
 Never copy `~/.xurl` between machines: OAuth2 refresh-token rotation can invalidate
-another machine's stored token. Register the app and run `xurl auth oauth2 <username>`
-independently on each machine.
+another machine's stored token. Re-register only the app credentials and authenticate
+independently on each machine. Preserve the app's existing callback URI exactly; for
+`xurl` through v1.2.2 the built-in default is `http://localhost:8080/callback`.
 
 Properties of the chezmoi lane that both directions depend on:
 
@@ -164,8 +165,8 @@ manual transfer. For each MISSING/WARNING item, tell the user what command to ru
   copy-only (not re-derivable by a login flow on this machine); `scp` them from the main
   machine (see the topology note in Mental Model), then `chmod 600`.
 - `~/.xurl` missing or its OAuth2 refresh token is invalid → do not copy the file from
-  another machine. Configure the X app on this machine if needed, then have the user run
-  `xurl auth oauth2 <username>` interactively. Each machine keeps its own OAuth state.
+  another machine. Follow **xurl per-device OAuth setup** below; each machine keeps its
+  own OAuth tokens.
 - SSH key missing → `gh auth login` + `gh ssh-key add`, or manual `ssh-keygen` +
   registering the public key on GitHub.
 - Orca hook missing → confirm whether the user actually wants Orca on this machine; if
@@ -185,6 +186,58 @@ manual transfer. For each MISSING/WARNING item, tell the user what command to ru
 - Hub dirty / diverged (WARNING) → do not auto-resolve; see Conflict Resolution Policy.
 - Tool resolving outside `~/.local/share/mise` (WARNING) → duplicate management; see
   Conflict Resolution Policy.
+
+### xurl per-device OAuth setup
+
+Treat a working machine and the X Developer Portal as the configuration reference, but
+never copy the working machine's whole `~/.xurl`. Before creating or changing anything,
+have the user run these non-secret diagnostics on the working machine when available:
+
+```sh
+xurl --version
+xurl auth apps list
+xurl auth apps redirect-uri get default
+xurl auth status
+```
+
+Match the new machine's app name and callback URI to that output and to the Developer
+Portal **exactly**. Do not normalize `localhost` to `127.0.0.1` (or the reverse): X
+requires an exact callback match, and xurl's historical default is
+`http://localhost:8080/callback`. Register OAuth **2.0 Client ID / Client Secret**, not
+the OAuth1 API Key / API Key Secret. Never ask the user to paste either credential into
+chat. For a zsh session, offer this history-safe setup:
+
+```zsh
+read -r "client_id?OAuth2 Client ID: "
+read -rs "client_secret?OAuth2 Client Secret: "; printf '\n'
+xurl auth apps add default --client-id "$client_id" --client-secret "$client_secret" \
+  --redirect-uri 'http://localhost:8080/callback'
+unset client_id client_secret
+xurl auth oauth2 USERNAME --app default
+```
+
+If `app "default" already exists`, repeat the credential prompts and use this instead of
+`apps add`:
+
+```zsh
+xurl auth apps update default --client-id "$client_id" \
+  --client-secret "$client_secret" \
+  --redirect-uri 'http://localhost:8080/callback'
+unset client_id client_secret
+```
+
+To change only the callback, use:
+
+```sh
+xurl auth apps redirect-uri set default 'http://localhost:8080/callback'
+```
+
+For X's generic “You weren't able to give access to the App” page, inspect in this order:
+effective callback (`redirect-uri get`), exact Developer Portal callback, selected app
+and non-empty credentials (`apps list` / `status`), OAuth2-vs-OAuth1 credential type,
+then app permissions/package state. Client Secret is used at token exchange, so a failure
+on the authorization page itself points first to Client ID, callback, scopes, or X-side
+app state. After success, verify `xurl auth status` shows the username under OAuth2.
 
 ## Conflict Resolution Policy (follower machine)
 
