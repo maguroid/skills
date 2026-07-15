@@ -26,17 +26,20 @@ invented — these are already wired up:
 
 Credentials and machine-specific state are **not** distributed by any of the above and
 must be established per machine: `~/.llmx/credentials`, `~/.config/gogcli/credentials.json`,
-`~/.claude/.credentials.json`, `~/.codex/auth.json`, `~/.xurl`, SSH keys, and the Orca app +
-its hook at `~/.orca/agent-hooks/claude-hook.sh` (Orca app install is a manual prerequisite).
+`~/.claude/.credentials.json`, `~/.codex/auth.json`, per-device xurl OAuth state in
+`~/.xurl`, SSH keys, and the Orca app + its hook at
+`~/.orca/agent-hooks/claude-hook.sh` (Orca app install is a manual prerequisite).
 
 The user's machines form a hub-and-spoke topology: one always-on **main machine** at home
 (the canonical push source for dotfiles/hubs) and one or more portable **follower machines**.
 The main machine is normally reachable from followers over SSH (a `~/.ssh/config` host
 alias; the concrete hostname is machine-local knowledge — see the global CLAUDE.md's
 sync section on that machine, or doctor's hints, rather than this public skill). Copy-only
-credentials (`~/.llmx/credentials`, `~/.config/gogcli/credentials.json`, `~/.xurl`) are
-therefore fetched from the main machine with `scp` rather than "an old machine" in the
-abstract.
+credentials (`~/.llmx/credentials`, `~/.config/gogcli/credentials.json`) are therefore
+fetched from the main machine with `scp` rather than "an old machine" in the abstract.
+Never copy `~/.xurl` between machines: OAuth2 refresh-token rotation can invalidate
+another machine's stored token. Register the app and run `xurl auth oauth2 <username>`
+independently on each machine.
 
 Properties of the chezmoi lane that both directions depend on:
 
@@ -151,11 +154,12 @@ manual transfer. For each MISSING/WARNING item, tell the user what command to ru
 - `~/.claude/.credentials.json` missing → have the user run `claude` and log in
   interactively (`! claude` from the agent, or a separate terminal).
 - `~/.codex/auth.json` missing → have the user run `codex login`.
-- `~/.llmx/credentials`, `~/.config/gogcli/credentials.json`, or `~/.xurl` missing →
-  these are copy-only (not re-derivable by a login flow on this machine, or re-deriving
-  needs app registration data); `scp` them from the main machine (see the topology note
-  in Mental Model), then `chmod 600`. Fall back to that tool's own setup flow only if
-  the main machine is unreachable.
+- `~/.llmx/credentials` or `~/.config/gogcli/credentials.json` missing → these are
+  copy-only (not re-derivable by a login flow on this machine); `scp` them from the main
+  machine (see the topology note in Mental Model), then `chmod 600`.
+- `~/.xurl` missing or its OAuth2 refresh token is invalid → do not copy the file from
+  another machine. Configure the X app on this machine if needed, then have the user run
+  `xurl auth oauth2 <username>` interactively. Each machine keeps its own OAuth state.
 - SSH key missing → `gh auth login` + `gh ssh-key add`, or manual `ssh-keygen` +
   registering the public key on GitHub.
 - Orca hook missing → confirm whether the user actually wants Orca on this machine; if
