@@ -20,6 +20,7 @@ invented — these are already wired up:
 |---|---|---|
 | Dotfiles (`~/.zsh.d`, `~/.claude/{CLAUDE.md,settings.json,keybindings.json}`, `~/.codex/{config.toml,AGENTS.md,rules}`, `~/.config/mise`, ...) | `git@github.com:maguroid/dotfiles.git` (branch `main`), local checkout `~/.local/share/chezmoi` | chezmoi (`chezmoi init --apply` first time, `chezmoi update` thereafter) |
 | Runtime/CLI tools (node, uv, etc.) | `~/.config/mise/config.toml` (itself chezmoi-managed) | mise (`mise install`, triggered automatically by a chezmoi run_onchange hook whenever the config changes) |
+| Rust toolchain (`rustup`, `rustc`, `cargo`) | rustup stable channel; bootstrap logic in the chezmoi source | rustup (`run_before_05-install-rustup.sh`; shell PATH remains chezmoi-managed) |
 | Global and registered skill repos (`global-skill-workflow`, `feedback-assetization`, this skill, ...) | `maguroid/skills` (agent-neutral) + `maguroid/cc-skills` (Claude Code-only) + `maguroid/codex-skills` (Codex-only) + any private repos in `~/.agents/skills-repos.local.md` | pull: clone + pull + `bootstrap.sh` (pulls clean registered repos `--ff-only`, then symlinks into home-global discovery directories according to scope; `workspace-only` entries are fetched but not globalized), run on **every** chezmoi apply via a run_after hook (1-hour throttle). push: the three built-in repos auto-commit+push via a global Claude Code Stop hook (`global-skill-workflow/scripts/auto_sync.sh`); registry repos stay manual — see `global-skill-workflow` |
 | Workspace-local skills | Each owning workspace repository's `.agents/skills` | `$HOME/.agents/workspace-skills.local.md` maps the owner/organization folder actually opened as the harness root to its canonical workspace skills. After hub sync, the `global-skill-workflow` reconciler projects links into that root's `.agents/skills` and `.claude/skills`; it never globalizes them. |
 | Hub repos, incl. agent memory (each hub — e.g. Workspace-Me, Workspace-Foo — carries its `agent-memory/`) | hub registry `~/.agents/hubs.md` (chezmoi-managed; `- 自動同期: true` enables global Stop auto-push) | path migration runs before hub sync; then missing repos are cloned and clean repos pulled. The global Stop hook commits/pushes every dirty or ahead auto-sync hub, independent of cwd; the private hook may also add narrowly scoped companion repositories such as a team wiki. Memory *operation* stays with `feedback-assetization` |
@@ -74,12 +75,16 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
 1. Run the bootstrap one-liner:
 
    ```sh
-   sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply git@github.com:maguroid/dotfiles.git
+   sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin" init --apply git@github.com:maguroid/dotfiles.git
    ```
 
 2. This chains automatically, in order (each stage prints a `==> [1/4]` … `==> [4/4]`
    progress banner):
    - `run_once_before_00-install-mise.sh` installs mise if it isn't present yet.
+   - `run_before_05-install-rustup.sh` verifies rustup and the stable Rust toolchain on
+     every apply, exits immediately when they are healthy, and installs or repairs them
+     only when needed. It uses `--no-modify-path`; chezmoi's zsh configuration is the
+     sole owner of Cargo's PATH setup.
    - chezmoi applies the full dotfile set into `$HOME` (`~/.zsh.d`, `~/.claude`, `~/.codex`,
      `~/.config/mise`, etc.).
    - `run_onchange_after_10-mise-install.sh` runs `mise install` to pull every tool
@@ -125,7 +130,8 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
    It always exits 0 (even with MISSING items) and prints a summary count at the end —
    treat a nonzero MISSING count as a checklist, not a failure. It checks: auth files
    (`~/.llmx/credentials`, `~/.config/gogcli/credentials.json`, `~/.claude/.credentials.json`,
-   `~/.codex/auth.json`, `~/.xurl`), SSH keys, the Orca hook file, any real (non-symlink) directory
+   `~/.codex/auth.json`, `~/.xurl`), SSH keys, the Orca hook file, the persistent chezmoi command,
+   rustup/Rust/Cargo, any real (non-symlink) directory
    under `~/.agents/skills` that isn't backed by a canonical repo, `mise doctor`, plus:
    - **Per-hub checks** (from `~/.agents/hubs.md`): hub missing on disk → MISSING (fix:
      re-run apply, which triggers hub sync); working tree dirty → WARNING; ahead/behind
@@ -173,6 +179,9 @@ manual transfer. For each MISSING/WARNING item, tell the user what command to ru
 - Hub MISSING → the agent CAN fix this one: re-run `chezmoi apply` (or `chezmoi update`),
   which re-triggers the hub sync script (prefix `HARNESS_SYNC_FORCE=1` if the last run
   was within the hour, or the throttle will skip it).
+- `rustup` or the stable Rust toolchain missing → the agent CAN fix this one: re-run
+  `chezmoi apply`; the Rust pre-apply hook skips healthy installs and repairs only the
+  missing pieces.
 - Hub dirty / diverged (WARNING) → do not auto-resolve; see Conflict Resolution Policy.
 - Tool resolving outside `~/.local/share/mise` (WARNING) → duplicate management; see
   Conflict Resolution Policy.
