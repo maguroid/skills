@@ -1,4 +1,4 @@
 interface:
   display_name: "Harness Sync"
-  short_description: "Sync the agent working environment across machines: pull (bootstrap/update via chezmoi, mise, skills, hubs) and push (edit chezmoi-managed dotfiles, fold drift back)."
-  default_prompt: "For pull work, bootstrap or update this machine from the canonical remotes (chezmoi init/update, run_onchange hooks, doctor.sh) and resolve follower-machine conflicts. For push work, detect whether a dotfile is chezmoi-managed, edit or sync it through chezmoi (autoCommit/autoPush fires on chezmoi commands that change the source state), and review for secrets before touching the source state."
+  short_description: "Sync chezmoi, mise, skills, hubs, and safe Wrangler profile policy across machines; fold intended dotfile drift back into the canonical source."
+  default_prompt: "Bootstrap or update this machine from canonical remotes, run doctor checks, and resolve follower conflicts. For dotfile changes, detect chezmoi management, review secrets before source writes, and publish intended drift. Keep Wrangler OAuth credentials machine-local while enforcing personal as default and binding personal/company workspace roots to their named profiles."

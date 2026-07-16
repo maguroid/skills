@@ -1,7 +1,7 @@
 ---
 name: harness-sync
 description: >-
-  Sync this user's agent environment across machines in both directions: pull/bootstrap from remotes and push chezmoi-managed local changes back to the source repo. Use for new Mac setup, environment or harness sync, setup diagnosis and doctor output, `chezmoi update` / `chezmoi init --apply`, hook-driven mise/skill/hub sync, pull conflicts, and explicit chezmoi add/edit/remove/diff/apply operations. Also use for edits under locations such as `~/.zsh.d`, `~/.config/nvim`, `~/.claude`, `~/.codex`, or `~/.config/ghostty`: first check `chezmoi source-path`, then follow this workflow when managed. Use for "dotfiles同期して", "chezmoiに取り込んで", or reconciling local drift. Do not use for unmanaged files unless the user asks to manage them, for individual skill authoring or migration (`global-skill-workflow`), or for agent-memory GC, briefs, and conventions (`feedback-assetization`); cloning and pulling hub repos that carry memory remains covered.
+  Sync this user's agent environment across machines: pull/bootstrap from remotes and push chezmoi-managed changes back. Use for new Mac setup, harness or dotfiles sync, doctor output, `chezmoi init/update/add/edit/re-add/remove/diff/apply`, hook-driven mise/skill/hub sync, Wrangler installation and safe personal/company auth-profile defaults or bindings, pull conflicts, or drift under `~/.zsh.d`, `~/.config/nvim`, `~/.claude`, `~/.codex`, `~/.config/mise`, or `~/.config/ghostty`. First check `chezmoi source-path` for dotfile-like paths. Also use for "dotfiles同期して" or "chezmoiに取り込んで". Do not use for unmanaged files unless asked, individual skill authoring or migration (`global-skill-workflow`), or agent-memory operations (`feedback-assetization`); cloning and pulling memory-carrying hub repos remains covered.
 ---
 
 # Harness Sync
@@ -21,6 +21,7 @@ invented — these are already wired up:
 | Dotfiles (`~/.zsh.d`, `~/.claude/{CLAUDE.md,settings.json,keybindings.json}`, `~/.codex/{config.toml,AGENTS.md,rules}`, `~/.config/mise`, ...) | `git@github.com:maguroid/dotfiles.git` (branch `main`), local checkout `~/.local/share/chezmoi` | chezmoi (`chezmoi init --apply` first time, `chezmoi update` thereafter) |
 | Runtime/CLI tools (node, uv, etc.) | `~/.config/mise/config.toml` (itself chezmoi-managed) | mise (`mise install`, triggered automatically by a chezmoi run_onchange hook whenever the config changes) |
 | Rust toolchain (`rustup`, `rustc`, `cargo`) | rustup stable channel; bootstrap logic in the chezmoi source | rustup (`run_before_05-install-rustup.sh`; shell PATH remains chezmoi-managed) |
+| Wrangler profile policy | dotfiles hook `run_after_45-configure-wrangler-profiles.sh`; OAuth profile files remain machine-local | after both named profiles exist, every apply enforces personal as default and binds `$HOME/ghq/github.com/maguroid` to `personal` and `$HOME/ghq/github.com/hashigodakainc` to `hashigodaka`; doctor reports missing profiles or drift |
 | Global and registered skill repos (`global-skill-workflow`, `feedback-assetization`, this skill, ...) | `maguroid/skills` (agent-neutral) + `maguroid/cc-skills` (Claude Code-only) + `maguroid/codex-skills` (Codex-only) + any private repos in `~/.agents/skills-repos.local.md` | pull: clone + pull + `bootstrap.sh` (pulls clean registered repos `--ff-only`, then symlinks into home-global discovery directories according to scope; `workspace-only` entries are fetched but not globalized), run on **every** chezmoi apply via a run_after hook (1-hour throttle). push: the three built-in repos auto-commit+push via a global Claude Code Stop hook (`global-skill-workflow/scripts/auto_sync.sh`); registry repos stay manual — see `global-skill-workflow` |
 | Workspace-local skills | Each owning workspace repository's `.agents/skills` | `$HOME/.agents/workspace-skills.local.md` maps the owner/organization folder actually opened as the harness root to its canonical workspace skills. After hub sync, the `global-skill-workflow` reconciler projects links into that root's `.agents/skills` and `.claude/skills`; it never globalizes them. |
 | Hub repos, incl. agent memory (each hub — e.g. Workspace-Me, Workspace-Foo — carries its `agent-memory/`) | hub registry `~/.agents/hubs.md` (chezmoi-managed; `- 自動同期: true` enables global Stop auto-push) | path migration runs before hub sync; then missing repos are cloned and clean repos pulled. The global Stop hook commits/pushes every dirty or ahead auto-sync hub, independent of cwd; the private hook may also add narrowly scoped companion repositories such as a team wiki. Memory *operation* stays with `feedback-assetization` |
@@ -30,6 +31,9 @@ must be established per machine: `~/.llmx/credentials`, `~/.config/gogcli/creden
 `~/.claude/.credentials.json`, `~/.codex/auth.json`, per-device xurl OAuth state in
 `~/.xurl`, SSH keys, and the Orca app + its hook at
 `~/.orca/agent-hooks/claude-hook.sh` (Orca app install is a manual prerequisite).
+Wrangler OAuth files under `~/.config/.wrangler/config/*.toml` are also machine-local and
+must never be committed; only their expected profile names, default policy, and directory
+bindings are reproduced by the managed hook.
 
 The user's machines form a hub-and-spoke topology: one always-on **main machine** at home
 (the canonical push source for dotfiles/hubs) and one or more portable **follower machines**.
@@ -115,6 +119,10 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
    - `run_after_35-refresh-workspace-remote-control.sh` recreates existing
      `claude-rc-me` / `claude-rc-hsg` tmux sessions only when their start path is a
      migrated legacy Workspace.
+   - `run_after_45-configure-wrangler-profiles.sh` never performs an interactive login.
+     When machine-local `personal` and `hashigodaka` profiles exist, it makes `personal`
+     the default and binds the personal/company ghq owner roots to their matching profiles.
+     Missing profiles produce warnings and are left for the user to authenticate locally.
 
    The 20/30 stages are `run_after` hooks: they run on **every** apply, but with a
    1-hour throttle — within an hour of the last successful run they print
@@ -132,7 +140,7 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
    treat a nonzero MISSING count as a checklist, not a failure. It checks: auth files
    (`~/.llmx/credentials`, `~/.config/gogcli/credentials.json`, `~/.claude/.credentials.json`,
    `~/.codex/auth.json`, `~/.xurl`), SSH keys, the Orca hook file, the persistent chezmoi command,
-   rustup/Rust/Cargo, any real (non-symlink) directory
+   rustup/Rust/Cargo, Wrangler named profiles/default/bindings, any real (non-symlink) directory
    under `~/.agents/skills` that isn't backed by a canonical repo, `mise doctor`, plus:
    - **Per-hub checks** (from `~/.agents/hubs.md`): hub missing on disk → MISSING (fix:
      re-run apply, which triggers hub sync); working tree dirty → WARNING; ahead/behind
@@ -167,6 +175,11 @@ manual transfer. For each MISSING/WARNING item, tell the user what command to ru
 - `~/.xurl` missing or its OAuth2 refresh token is invalid → do not copy the file from
   another machine. Follow **xurl per-device OAuth setup** below; each machine keeps its
   own OAuth tokens.
+- Wrangler `personal` / `hashigodaka` profile missing → run `wrangler auth create personal`
+  and/or `wrangler auth create hashigodaka` interactively on that machine, choosing the
+  corresponding Cloudflare account, then run `chezmoi apply`. Do not copy or commit the
+  OAuth TOML files. The apply hook sets personal as default and restores both owner-root
+  bindings; doctor verifies the resulting policy.
 - SSH key missing → `gh auth login` + `gh ssh-key add`, or manual `ssh-keygen` +
   registering the public key on GitHub.
 - Orca hook missing → confirm whether the user actually wants Orca on this machine; if
@@ -314,6 +327,9 @@ needed. Two behaviors to know:
   from racing. Private workspace configuration may add companion repositories that sync
   only when the session cwd belongs to their workspace scope; keep those additions in the
   private hook rather than the public hub registry.
+- **Wrangler profile policy**: after the sync stages, the managed hook reasserts personal
+  as the default and the personal/company owner-root bindings whenever both local named
+  profiles are available. Credentials themselves never leave the machine.
 
 If the update stops on an overwrite prompt (or fails non-interactively with a local
 diff), follow the Conflict Resolution Policy above. Run `bash ~/.local/share/chezmoi/scripts/doctor.sh` afterward if there's
