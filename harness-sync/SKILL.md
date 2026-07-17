@@ -8,7 +8,7 @@ description: >-
 
 One skill for both directions of environment sync. **Pull**: set up a brand-new machine,
 or refresh an existing one, from the canonical remotes (dotfiles, CLI tools, global
-skills, hub repos, and — where possible — credentials). **Push**: edit chezmoi-managed
+skills, and hub repos). **Push**: edit chezmoi-managed
 dotfiles and fold local drift back into the chezmoi source repo, with secret hygiene.
 
 ## Mental Model
@@ -37,15 +37,13 @@ bindings are reproduced by the managed hook.
 
 The user's machines form a hub-and-spoke topology: one always-on **main machine** at home
 (the canonical push source for dotfiles/hubs) and one or more portable **follower machines**.
-The main machine is normally reachable from followers over SSH (a `~/.ssh/config` host
-alias; the concrete hostname is machine-local knowledge — see the global CLAUDE.md's
-sync section on that machine, or doctor's hints, rather than this public skill). Copy-only
-credentials (`~/.llmx/credentials`, `~/.config/gogcli/credentials.json`) are therefore
-fetched from the main machine with `scp` rather than "an old machine" in the abstract.
-Never copy `~/.xurl` between machines: OAuth2 refresh-token rotation can invalidate
-another machine's stored token. Re-register only the app credentials and authenticate
-independently on each machine. Preserve the app's existing callback URI exactly; for
-`xurl` through v1.2.2 the built-in default is `http://localhost:8080/callback`.
+Authentication files and tokens are outside the sync lane: never copy them from the main
+machine or another device as part of bootstrap or daily sync. Configure each tool locally
+on each machine using its own login or secure setup flow. In particular, never copy
+`~/.xurl` between machines: OAuth2 refresh-token rotation can invalidate another machine's
+stored token. Re-register the app credentials and authenticate independently on each
+machine. Preserve the app's existing callback URI exactly; for `xurl` through v1.2.2 the
+built-in default is `http://localhost:8080/callback`.
 
 Properties of the chezmoi lane that both directions depend on:
 
@@ -163,15 +161,16 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
 
 ## Handling doctor Gaps
 
-Most of these cannot be done by the agent alone — they need an interactive login or a
-manual transfer. For each MISSING/WARNING item, tell the user what command to run and why:
+Most of these cannot be done by the agent alone — they need an interactive login or local
+credential setup. For each MISSING/WARNING item, tell the user what command to run and why:
 
 - `~/.claude/.credentials.json` missing → have the user run `claude` and log in
   interactively (`! claude` from the agent, or a separate terminal).
 - `~/.codex/auth.json` missing → have the user run `codex login`.
-- `~/.llmx/credentials` or `~/.config/gogcli/credentials.json` missing → these are
-  copy-only (not re-derivable by a login flow on this machine); `scp` them from the main
-  machine (see the topology note in Mental Model), then `chmod 600`.
+- `~/.llmx/credentials` missing → configure it locally for the providers used on that
+  machine, following the `llmx` skill's first-run setup. Never request or print API keys.
+- `~/.config/gogcli/credentials.json` missing → run `gog auth setup <email>` locally and
+  complete its guided OAuth setup. Do not import credentials from another machine.
 - `~/.xurl` missing or its OAuth2 refresh token is invalid → do not copy the file from
   another machine. Follow **xurl per-device OAuth setup** below; each machine keeps its
   own OAuth tokens.
@@ -471,7 +470,7 @@ Summarize:
 - Run the commands above directly (curl one-liner, `chezmoi update`, `doctor.sh`) rather
   than just describing them.
 - Read and interpret doctor's output for the user; don't just paste it raw. Group
-  findings into "nothing to do", "needs a login command", and "needs manual transfer".
+  findings into "nothing to do", "needs a login command", and "needs local setup".
 - Never attempt interactive logins (`claude`, `codex login`, `gh auth login`) on the
   user's behalf — these require a real terminal/browser interaction. Tell the user the
   exact command to run themselves.

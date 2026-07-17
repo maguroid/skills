@@ -1,4 +1,4 @@
 interface:
   display_name: "Harness Sync"
   short_description: "Sync chezmoi, mise, skills, hubs, and safe Wrangler profile policy across machines; fold intended dotfile drift back into the canonical source."
-  default_prompt: "Bootstrap or update this machine from canonical remotes, run doctor checks, and resolve follower conflicts. For dotfile changes, detect chezmoi management, review secrets before source writes, and publish intended drift. Keep Wrangler OAuth credentials machine-local while enforcing personal as default and binding personal/company workspace roots to their named profiles."
+  default_prompt: "Bootstrap or update this machine from canonical remotes, run doctor checks, and resolve follower conflicts. For dotfile changes, detect chezmoi management, review secrets before source writes, and publish intended drift. Keep all authentication credentials machine-local and use each tool's local setup flow; never copy credentials from another machine. Enforce personal as the Wrangler default and bind personal/company workspace roots to their named profiles."
