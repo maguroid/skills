@@ -34,6 +34,60 @@ The upstream installer copies `tailscaled` to `/usr/local/bin` and creates
 `/Library/LaunchDaemons/com.tailscale.tailscaled.plist`. This keeps the root daemon
 separate from mise's user-owned version directory.
 
+## MagicDNS-style short hostnames with the OSS client
+
+If the OSS macOS client resolves a Tailnet peer only as `user@host-ip`, configure macOS
+split DNS locally. The resolver routes only `.ts.net` names to Tailscale DNS, while the
+search domain expands a short name such as `macmini` to the Tailnet FQDN. This does not
+replace the normal DHCP-provided DNS servers.
+
+First identify the active network service and the Tailnet suffix, and record any existing
+search domains before changing them:
+
+```sh
+networksetup -listallnetworkservices
+networksetup -getdnsservers '<network-service>'
+networksetup -getsearchdomains '<network-service>'
+tailscale status --json | jq -r '.MagicDNSSuffix'
+```
+
+Create the scoped resolver, using the fixed Tailscale DNS address:
+
+```sh
+sudo mkdir -p /etc/resolver
+printf '%s\n' 'nameserver 100.100.100.100' | sudo tee /etc/resolver/ts.net >/dev/null
+sudo chown root:wheel /etc/resolver/ts.net
+sudo chmod 0644 /etc/resolver/ts.net
+```
+
+Add the reported suffix to the active service's search domains. If search domains already
+exist, pass all of the existing values plus the new suffix; `networksetup` replaces the
+whole list rather than appending to it.
+
+```sh
+sudo networksetup -setsearchdomains '<network-service>' '<tailnet-name>.ts.net'
+sudo dscacheutil -flushcache
+sudo killall -HUP mDNSResponder
+```
+
+Verify the resolver, short-name expansion, and SSH reachability:
+
+```sh
+scutil --dns
+dscacheutil -q host -a name macmini
+nc -vz -w 5 macmini 22
+ssh macmini
+```
+
+`ssh macmini` uses the local macOS username. Use `ssh user@macmini` when the remote
+username differs.
+
+This configuration is machine-local, like the daemon registration and login state. Do
+not sync `/etc/resolver/ts.net` or a network service's search-domain setting through
+chezmoi. On removal, delete only `/etc/resolver/ts.net`, restore the exact search-domain
+values recorded before setup (or use `Empty` only when there were none), and flush the
+DNS caches again.
+
 ## Update
 
 Keep the `tailscale` and `tailscaled` module versions identical. After changing both
