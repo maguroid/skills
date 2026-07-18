@@ -27,7 +27,7 @@ invented — these are already wired up:
 | Hub repos, incl. agent memory (each hub — e.g. Workspace-Me, Workspace-Foo — carries its `agent-memory/`) | hub registry `~/.agents/hubs.md` (chezmoi-managed; `- 自動同期: true` enables global Stop auto-push) | path migration runs before hub sync; then missing repos are cloned and clean repos pulled. The global SessionStart hook resolves the current work-folder scope (falling back to the default hub), pulls that hub, and injects its memory index; the Stop hook commits/pushes every dirty or ahead auto-sync hub, independent of cwd. The private hook may also add narrowly scoped companion repositories such as a team wiki. Memory *operation* stays with `feedback-assetization` |
 
 Credentials and machine-specific state are **not** distributed by any of the above and
-must be established per machine: `~/.llmx/credentials`, `~/.config/gogcli/credentials.json`,
+must be established per machine: `~/.config/gogcli/credentials.json`,
 `~/.claude/.credentials.json`, `~/.codex/auth.json`, per-device xurl OAuth state in
 `~/.xurl`, SSH keys, and the Orca app + its hook at
 `~/.orca/agent-hooks/claude-hook.sh` (Orca app install is a manual prerequisite).
@@ -136,7 +136,7 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
 
    It always exits 0 (even with MISSING items) and prints a summary count at the end —
    treat a nonzero MISSING count as a checklist, not a failure. It checks: auth files
-   (`~/.llmx/credentials`, `~/.config/gogcli/credentials.json`, `~/.claude/.credentials.json`,
+   (`~/.config/gogcli/credentials.json`, `~/.claude/.credentials.json`,
    `~/.codex/auth.json`, `~/.xurl`), SSH keys, the Orca hook file, the persistent chezmoi command,
    rustup/Rust/Cargo, Wrangler named profiles/default/bindings, any real (non-symlink) directory
    under `~/.agents/skills` that isn't backed by a canonical repo, `mise doctor`, plus:
@@ -167,8 +167,6 @@ credential setup. For each MISSING/WARNING item, tell the user what command to r
 - `~/.claude/.credentials.json` missing → have the user run `claude` and log in
   interactively (`! claude` from the agent, or a separate terminal).
 - `~/.codex/auth.json` missing → have the user run `codex login`.
-- `~/.llmx/credentials` missing → configure it locally for the providers used on that
-  machine, following the `llmx` skill's first-run setup. Never request or print API keys.
 - `~/.config/gogcli/credentials.json` missing → run `gog auth setup <email>` locally and
   complete its guided OAuth setup. Do not import credentials from another machine.
 - `~/.xurl` missing or its OAuth2 refresh token is invalid → do not copy the file from
