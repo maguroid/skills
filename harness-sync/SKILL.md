@@ -29,8 +29,7 @@ invented — these are already wired up:
 Credentials and machine-specific state are **not** distributed by any of the above and
 must be established per machine: `~/.config/gogcli/credentials.json`,
 `~/.claude/.credentials.json`, `~/.codex/auth.json`, per-device xurl OAuth state in
-`~/.xurl`, SSH keys, and the Orca app + its hook at
-`~/.orca/agent-hooks/claude-hook.sh` (Orca app install is a manual prerequisite).
+`~/.xurl`, and SSH keys.
 Wrangler OAuth files under `~/.config/.wrangler/config/*.toml` are also machine-local and
 must never be committed; only their expected profile names, default policy, and directory
 bindings are reproduced by the managed hook.
@@ -137,7 +136,7 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
    It always exits 0 (even with MISSING items) and prints a summary count at the end —
    treat a nonzero MISSING count as a checklist, not a failure. It checks: auth files
    (`~/.config/gogcli/credentials.json`, `~/.claude/.credentials.json`,
-   `~/.codex/auth.json`, `~/.xurl`), SSH keys, the Orca hook file, the persistent chezmoi command,
+   `~/.codex/auth.json`, `~/.xurl`), SSH keys, the persistent chezmoi command,
    rustup/Rust/Cargo, Wrangler named profiles/default/bindings, any real (non-symlink) directory
    under `~/.agents/skills` that isn't backed by a canonical repo, `mise doctor`, plus:
    - **Per-hub checks** (from `~/.agents/hubs.md`): hub missing on disk → MISSING (fix:
@@ -157,7 +156,7 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
 
 4. Walk the user through each MISSING item — see "Handling doctor Gaps" below. Do not
    treat the run as complete until doctor is clean or the user has explicitly accepted
-   remaining gaps (e.g. no Orca on this machine).
+   remaining gaps.
 
 ## Handling doctor Gaps
 
@@ -179,11 +178,8 @@ credential setup. For each MISSING/WARNING item, tell the user what command to r
   bindings; doctor verifies the resulting policy.
 - SSH key missing → `gh auth login` + `gh ssh-key add`, or manual `ssh-keygen` +
   registering the public key on GitHub.
-- Orca hook missing → confirm whether the user actually wants Orca on this machine; if
-  yes, installing the Orca app is the prerequisite, the hook file follows from that.
 - A real (non-symlinked) directory under `~/.agents/skills` → two legitimate resolutions:
-  if it's an **intentional machine-local skill** (e.g. `orca-cli`, installed by the Orca
-  app), add its name (one per line, `#` comments allowed) to
+  if it's an **intentional machine-local skill**, add its name (one per line, `#` comments allowed) to
   `~/.agents/skills-local-allow.txt` — a machine-local, non-chezmoi-managed allowlist
   that doctor reads; listed skills report OK instead of WARNING. Otherwise it's drift;
   hand off to `global-skill-workflow`'s conflict-handling, don't resolve it here.
