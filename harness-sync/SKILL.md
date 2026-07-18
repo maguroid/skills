@@ -1,7 +1,7 @@
 ---
 name: harness-sync
 description: >-
-  Sync this user's agent environment across machines: pull/bootstrap from remotes and push chezmoi-managed changes back. Use for new Mac setup, harness or dotfiles sync, doctor output, `chezmoi init/update/add/edit/re-add/remove/diff/apply`, hook-driven mise/skill/hub sync, Wrangler installation and safe personal/company auth-profile defaults or bindings, pull conflicts, or drift under `~/.zsh.d`, `~/.config/nvim`, `~/.claude`, `~/.codex`, `~/.config/mise`, or `~/.config/ghostty`. First check `chezmoi source-path` for dotfile-like paths. Also use for "dotfiles同期して" or "chezmoiに取り込んで". Do not use for unmanaged files unless asked, individual skill authoring or migration (`global-skill-workflow`), or agent-memory operations (`feedback-assetization`); cloning and pulling memory-carrying hub repos remains covered.
+  Sync this user's agent environment across machines: pull/bootstrap from remotes and push chezmoi-managed changes back. Use for new Mac setup, harness or dotfiles sync, doctor output, `chezmoi init/update/add/edit/re-add/remove/diff/apply`, hook-driven mise/skill/hub sync, Tailscale OSS daemon diagnosis, Wrangler installation and safe personal/company auth-profile defaults or bindings, pull conflicts, or drift under `~/.zsh.d`, `~/.config/nvim`, `~/.claude`, `~/.codex`, `~/.config/mise`, or `~/.config/ghostty`. First check `chezmoi source-path` for dotfile-like paths. Also use for "dotfiles同期して" or "chezmoiに取り込んで". Do not use for unmanaged files unless asked, individual skill authoring or migration (`global-skill-workflow`), or agent-memory operations (`feedback-assetization`); cloning and pulling memory-carrying hub repos remains covered.
 ---
 
 # Harness Sync
@@ -20,6 +20,7 @@ invented — these are already wired up:
 |---|---|---|
 | Dotfiles (`~/.zsh.d`, `~/.claude/{CLAUDE.md,settings.json,keybindings.json}`, `~/.codex/{config.toml,hooks.json,AGENTS.md,rules}`, `~/.agents/{hubs.md,workspace-sync-hook.sh}`, `~/.config/mise`, ...) | `git@github.com:maguroid/dotfiles.git` (branch `main`), local checkout `~/.local/share/chezmoi` | chezmoi (`chezmoi init --apply` first time, `chezmoi update` thereafter) |
 | Runtime/CLI tools (node, uv, etc.) | `~/.config/mise/config.toml` (itself chezmoi-managed) | mise (`mise install`, triggered automatically by a chezmoi run_onchange hook whenever the config changes) |
+| Tailscale OSS client on macOS | The two mise Go-backend declarations sync; the root-owned daemon copy, LaunchDaemon registration, and Tailnet login are machine-local | `mise install` provides `tailscale` / `tailscaled`; each Mac runs the upstream `install-system-daemon` and authenticates itself. See [references/tailscale-macos.md](references/tailscale-macos.md). |
 | Rust toolchain (`rustup`, `rustc`, `cargo`) | rustup stable channel; bootstrap logic in the chezmoi source | rustup (`run_before_05-install-rustup.sh`; shell PATH remains chezmoi-managed) |
 | Wrangler profile policy | dotfiles hook `run_after_45-configure-wrangler-profiles.sh`; OAuth profile files remain machine-local | after both named profiles exist, every apply enforces personal as default and binds `$HOME/ghq/github.com/maguroid` to `personal` and `$HOME/ghq/github.com/hashigodakainc` to `hashigodaka`; doctor reports missing profiles or drift |
 | Global and registered skill repos (`global-skill-workflow`, `feedback-assetization`, this skill, ...) | `maguroid/skills` (agent-neutral) + `maguroid/cc-skills` (Claude Code-only) + `maguroid/codex-skills` (Codex-only) + any private repos in `~/.agents/skills-repos.local.md` | pull: clone + pull + `bootstrap.sh` (pulls clean registered repos `--ff-only`, then symlinks into home-global discovery directories according to scope; `workspace-only` entries are fetched but not globalized), run on **every** chezmoi apply via a run_after hook (1-hour throttle). push: the three built-in repos auto-commit+push via a global Claude Code Stop hook (`global-skill-workflow/scripts/auto_sync.sh`); registry repos stay manual — see `global-skill-workflow` |
@@ -29,7 +30,7 @@ invented — these are already wired up:
 Credentials and machine-specific state are **not** distributed by any of the above and
 must be established per machine: `~/.config/gogcli/credentials.json`,
 `~/.claude/.credentials.json`, `~/.codex/auth.json`, per-device xurl OAuth state in
-`~/.xurl`, and SSH keys.
+`~/.xurl`, SSH keys, and Tailscale state under `/Library/Tailscale`.
 Wrangler OAuth files under `~/.config/.wrangler/config/*.toml` are also machine-local and
 must never be committed; only their expected profile names, default policy, and directory
 bindings are reproduced by the managed hook.
@@ -150,6 +151,10 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
    - **Tool path-conflict check**: any tool whose `command -v` resolves outside
      `~/.local/share/mise` → WARNING (duplicate brew/system install shadow-managed by
      mise; see Conflict Resolution Policy).
+   - **Tailscale on macOS**: verify the mise-managed OSS binaries, native root-owned
+     LaunchDaemon copy, binary equality, per-device login, SSH server flag, and absence
+     of the GUI/Homebrew variants. Follow [references/tailscale-macos.md](references/tailscale-macos.md)
+     for repair and update commands; never copy another device's state.
    - **Workspace migration checks**: legacy Workspace paths or parent-root AGENTS links,
      wrong Workspace remotes, a missing global Workspace hook, and stale remote-control
      start paths are reported.
@@ -192,6 +197,9 @@ credential setup. For each MISSING/WARNING item, tell the user what command to r
 - Hub dirty / diverged (WARNING) → do not auto-resolve; see Conflict Resolution Policy.
 - Tool resolving outside `~/.local/share/mise` (WARNING) → duplicate management; see
   Conflict Resolution Policy.
+- Tailscale daemon/login/SSH/duplicate-install findings → keep the mise declarations as
+  the only synced state and repair the local Mac using
+  [references/tailscale-macos.md](references/tailscale-macos.md).
 
 ### xurl per-device OAuth setup
 
