@@ -50,11 +50,13 @@ Properties of the chezmoi lane that both directions depend on:
 
 - The source repo (`~/.local/share/chezmoi`, remote `github.com:maguroid/dotfiles`,
   branch `main`) is the single source of truth. Treat it, not $HOME, as canonical.
-- `~/.config/chezmoi/chezmoi.toml` sets `[git] autoCommit = true` and `autoPush = true`.
-  **chezmoi commands that modify the source state** (`chezmoi add`, `chezmoi re-add`,
-  `chezmoi edit`, `chezmoi forget`, `chezmoi remove`, …) commit and push to the remote
-  automatically. Directly editing a source file with an editor or Write/Edit tools does
-  **not** trigger this — such changes need a manual commit and push.
+- The source repo's `.chezmoi.toml.tmpl` generates the machine-local
+  `~/.config/chezmoi/chezmoi.toml` during `chezmoi init`, setting
+  `[git] autoCommit = true` and `autoPush = true`. `doctor.sh` verifies both the file and
+  the effective values. **chezmoi commands that modify the source state** (`chezmoi add`,
+  `chezmoi re-add`, `chezmoi edit`, `chezmoi forget`, `chezmoi remove`, …) then commit
+  and push to the remote automatically. Directly editing a source file with an editor or
+  Write/Edit tools does **not** trigger this — such changes need a manual commit and push.
 - Because a chezmoi command pushes the moment it runs, secret review must happen
   **before** the source state changes, not after.
 - lefthook + secretlint run at **pre-push** (not pre-commit). A rejected push still
@@ -84,6 +86,9 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
 
 2. This chains automatically, in order (each stage prints a `==> [1/4]` … `==> [4/4]`
    progress banner):
+   - Before apply, chezmoi renders the source repo's `.chezmoi.toml.tmpl` into the
+     machine-local `~/.config/chezmoi/chezmoi.toml`. This enables source-mutating
+     chezmoi commands to auto-commit and auto-push on that machine.
    - `run_once_before_00-install-mise.sh` installs mise if it isn't present yet.
    - `run_before_05-install-rustup.sh` verifies rustup and the stable Rust toolchain on
      every apply, exits immediately when they are healthy, and installs or repairs them
@@ -140,7 +145,8 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
    ```
 
    It always exits 0 (even with MISSING items) and prints a summary count at the end —
-   treat a nonzero MISSING count as a checklist, not a failure. It checks: auth files
+   treat a nonzero MISSING count as a checklist, not a failure. It checks: the local
+   chezmoi config and effective `autoCommit` / `autoPush` values, auth files
    (`~/.config/gogcli/credentials.json`, `~/.claude/.credentials.json`,
    `~/.codex/auth.json`, `~/.xurl`), SSH keys, the persistent chezmoi command,
    rustup/Rust/Cargo, Wrangler named profiles/default/bindings, any real (non-symlink) directory
@@ -175,6 +181,11 @@ credential setup. For each MISSING/WARNING item, tell the user what command to r
 
 - `codex` missing or resolving only to the ChatGPT app-bundled executable → follow
   [references/codex-cli.md](references/codex-cli.md); do not add Codex to mise.
+- `~/.config/chezmoi/chezmoi.toml` missing → the machine predates the config template or
+  bootstrap was incomplete. With an up-to-date clean source, run `chezmoi init` to
+  regenerate it from `.chezmoi.toml.tmpl`, then verify both effective values with
+  `chezmoi dump-config`. If the file exists but either value is false, inspect and edit
+  the local file; do not copy machine-local `[data]` or secrets from another device.
 - `~/.claude/.credentials.json` missing → have the user run `claude` and log in
   interactively (`! claude` from the agent, or a separate terminal).
 - `~/.codex/auth.json` missing → have the user run `codex login`.
