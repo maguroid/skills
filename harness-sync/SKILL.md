@@ -1,7 +1,7 @@
 ---
 name: harness-sync
 description: >-
-  Sync this user's agent environment across machines: pull/bootstrap from remotes and push chezmoi-managed changes back. Use for new Mac setup, harness or dotfiles sync, doctor output, `chezmoi init/update/add/edit/re-add/remove/diff/apply`, hook-driven mise/skill/hub sync, Tailscale OSS daemon diagnosis or macOS MagicDNS-style short-hostname setup, Wrangler installation and safe personal/company auth-profile defaults or bindings, pull conflicts, or drift under `~/.zsh.d`, `~/.config/nvim`, `~/.claude`, `~/.codex`, `~/.config/mise`, or `~/.config/ghostty`. First check `chezmoi source-path` for dotfile-like paths. Also use for "dotfiles同期して" or "chezmoiに取り込んで". Do not use for unmanaged files unless asked, individual skill authoring or migration (`global-skill-workflow`), or agent-memory operations (`feedback-assetization`); cloning and pulling memory-carrying hub repos remains covered.
+  Sync this user's agent environment across machines: pull/bootstrap from remotes and push chezmoi-managed changes back. Use for new Mac setup, harness or dotfiles sync, doctor output, Codex CLI standalone installation or updates, `chezmoi init/update/add/edit/re-add/remove/diff/apply`, hook-driven mise/skill/hub sync, Tailscale OSS daemon diagnosis or macOS MagicDNS-style short-hostname setup, Wrangler installation and safe personal/company auth-profile defaults or bindings, pull conflicts, or drift under `~/.zsh.d`, `~/.config/nvim`, `~/.claude`, `~/.codex`, `~/.config/mise`, or `~/.config/ghostty`. First check `chezmoi source-path` for dotfile-like paths. Also use for "dotfiles同期して" or "chezmoiに取り込んで". Do not use for unmanaged files unless asked, individual skill authoring or migration (`global-skill-workflow`), or agent-memory operations (`feedback-assetization`); cloning and pulling memory-carrying hub repos remains covered.
 ---
 
 # Harness Sync
@@ -19,7 +19,8 @@ invented — these are already wired up:
 | What | Source of truth | Sync mechanism |
 |---|---|---|
 | Dotfiles (`~/.zsh.d`, `~/.claude/{CLAUDE.md,settings.json,keybindings.json}`, `~/.codex/{config.toml,hooks.json,AGENTS.md,rules}`, `~/.agents/{hubs.md,workspace-sync-hook.sh}`, `~/.config/mise`, ...) | `git@github.com:maguroid/dotfiles.git` (branch `main`), local checkout `~/.local/share/chezmoi` | chezmoi (`chezmoi init --apply` first time, `chezmoi update` thereafter) |
-| Runtime/CLI tools (node, uv, etc.) | `~/.config/mise/config.toml` (itself chezmoi-managed) | mise (`mise install`, triggered automatically by a chezmoi run_onchange hook whenever the config changes) |
+| Runtime/CLI tools (node, uv, etc.; Codex CLI is the exception below) | `~/.config/mise/config.toml` (itself chezmoi-managed) | mise (`mise install`, triggered automatically by a chezmoi run_onchange hook whenever the config changes) |
+| Codex CLI | OpenAI's standalone package; installation is machine-local | Use the official installer on each Mac; do not declare Codex in mise. Follow [references/codex-cli.md](references/codex-cli.md). |
 | Tailscale OSS client on macOS | The two mise Go-backend declarations sync; the root-owned daemon copy, LaunchDaemon registration, and Tailnet login are machine-local | `mise install` provides `tailscale` / `tailscaled`; each Mac runs the upstream `install-system-daemon` and authenticates itself. See [references/tailscale-macos.md](references/tailscale-macos.md). |
 | Rust toolchain (`rustup`, `rustc`, `cargo`) | rustup stable channel; bootstrap logic in the chezmoi source | rustup (`run_before_05-install-rustup.sh`; shell PATH remains chezmoi-managed) |
 | Wrangler profile policy | dotfiles hook `run_after_45-configure-wrangler-profiles.sh`; OAuth profile files remain machine-local | after both named profiles exist, every apply enforces personal as default and binds `$HOME/ghq/github.com/maguroid` to `personal` and `$HOME/ghq/github.com/hashigodakainc` to `hashigodaka`; doctor reports missing profiles or drift |
@@ -128,7 +129,11 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
    (stamps: `~/.cache/harness-sync/{skills,hubs}-last-run`). Set `HARNESS_SYNC_FORCE=1`
    to force them.
 
-3. Run the diagnostic script and interpret its output for the user:
+3. Install or refresh the standalone Codex CLI on each Mac. Treat it as an intentional
+   exception to mise-managed tools and follow
+   [references/codex-cli.md](references/codex-cli.md).
+
+4. Run the diagnostic script and interpret its output for the user:
 
    ```sh
    bash ~/.local/share/chezmoi/scripts/doctor.sh
@@ -159,7 +164,7 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
      wrong Workspace remotes, a missing global Workspace hook, and stale remote-control
      start paths are reported.
 
-4. Walk the user through each MISSING item — see "Handling doctor Gaps" below. Do not
+5. Walk the user through each MISSING item — see "Handling doctor Gaps" below. Do not
    treat the run as complete until doctor is clean or the user has explicitly accepted
    remaining gaps.
 
@@ -168,6 +173,8 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
 Most of these cannot be done by the agent alone — they need an interactive login or local
 credential setup. For each MISSING/WARNING item, tell the user what command to run and why:
 
+- `codex` missing or resolving only to the ChatGPT app-bundled executable → follow
+  [references/codex-cli.md](references/codex-cli.md); do not add Codex to mise.
 - `~/.claude/.credentials.json` missing → have the user run `claude` and log in
   interactively (`! claude` from the agent, or a separate terminal).
 - `~/.codex/auth.json` missing → have the user run `codex login`.
@@ -308,10 +315,11 @@ prompt). When an agent runs these, or you want the log to stream through, add
 chezmoi update
 ```
 
-One command now refreshes everything: dotfiles, mise tools (run_onchange, fires when
-`~/.config/mise/config.toml` changed), skill repos, and hubs — the 20/30 `run_after`
+One command refreshes the managed sync lanes: dotfiles, mise tools (run_onchange, fires
+when `~/.config/mise/config.toml` changed), skill repos, and hubs — the 20/30 `run_after`
 hooks run on every apply, so no separate mise, skill-bootstrap, or hub-sync step is
-needed. Two behaviors to know:
+needed. The standalone Codex CLI and machine-local credentials are explicit exceptions.
+Behaviors to know:
 
 - **Throttle**: if the 20/30 stages ran successfully within the last hour they print a
   スキップ banner and do nothing; prefix with `HARNESS_SYNC_FORCE=1` when you need them
@@ -331,6 +339,8 @@ needed. Two behaviors to know:
 - **Wrangler profile policy**: after the sync stages, the managed hook reasserts personal
   as the default and the personal/company owner-root bindings whenever both local named
   profiles are available. Credentials themselves never leave the machine.
+- **Codex CLI updates**: `chezmoi update` and `mise install` do not update it. Follow
+  [references/codex-cli.md](references/codex-cli.md) on each Mac.
 
 If the update stops on an overwrite prompt (or fails non-interactively with a local
 diff), follow the Conflict Resolution Policy above. Run `bash ~/.local/share/chezmoi/scripts/doctor.sh` afterward if there's

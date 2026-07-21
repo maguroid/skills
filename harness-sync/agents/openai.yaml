@@ -1,4 +1,4 @@
 interface:
   display_name: "Harness Sync"
-  short_description: "Sync dotfiles, mise, Tailscale, skills, and hubs safely"
-  default_prompt: "Use $harness-sync to sync or diagnose this machine while keeping credentials and Tailscale state machine-local."
+  short_description: "Sync dotfiles, Codex CLI, mise, skills, and hubs safely"
+  default_prompt: "Use $harness-sync to sync or diagnose this machine, including the standalone Codex CLI, while keeping credentials machine-local."
