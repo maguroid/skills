@@ -1,4 +1,4 @@
 interface:
   display_name: "Harness Sync"
-  short_description: "Sync dotfiles, Codex CLI, mise, skills, and hubs safely"
-  default_prompt: "Use $harness-sync to sync or diagnose this machine, including the standalone Codex CLI, while keeping credentials machine-local."
+  short_description: "Sync dotfiles, apps, tools, skills, and hubs safely"
+  default_prompt: "Use $harness-sync to sync or diagnose this Mac, including Homebrew Casks such as Hammerspoon and the standalone Codex CLI, while keeping credentials and macOS privacy approvals machine-local."

@@ -1,7 +1,7 @@
 ---
 name: harness-sync
 description: >-
-  Sync this user's agent environment across machines: pull/bootstrap from remotes and push chezmoi-managed changes back. Use for new Mac setup, harness or dotfiles sync, doctor output, Codex CLI standalone installation or updates, `chezmoi init/update/add/edit/re-add/remove/diff/apply`, hook-driven mise/skill/hub sync, Tailscale OSS daemon diagnosis or macOS MagicDNS-style short-hostname setup, Wrangler installation and safe personal/company auth-profile defaults or bindings, pull conflicts, or drift under `~/.zsh.d`, `~/.config/nvim`, `~/.claude`, `~/.codex`, `~/.config/mise`, or `~/.config/ghostty`. First check `chezmoi source-path` for dotfile-like paths. Also use for "dotfiles同期して" or "chezmoiに取り込んで". Do not use for unmanaged files unless asked, individual skill authoring or migration (`global-skill-workflow`), or agent-memory operations (`feedback-assetization`); cloning and pulling memory-carrying hub repos remains covered.
+  Sync this user's agent environment across Macs: pull/bootstrap from remotes and push chezmoi-managed changes. Use for new Mac setup, harness or dotfiles sync, doctor output, standalone Codex CLI installation or updates, Hammerspoon installation/configuration, `chezmoi init/update/add/edit/re-add/remove/diff/apply`, hook-driven mise/Homebrew Cask/skill/hub sync, Tailscale OSS daemon or MagicDNS short-hostname setup, Wrangler profiles/bindings, conflicts, or drift under `~/.zsh.d`, `~/.config/nvim`, `~/.claude`, `~/.codex`, `~/.config/mise`, `~/.config/homebrew`, `~/.hammerspoon`, or `~/.config/ghostty`. First check `chezmoi source-path` for dotfile-like paths. Also use for "dotfiles同期して" or "chezmoiに取り込んで". Do not use for unmanaged files unless asked, individual skill authoring/migration (`global-skill-workflow`), or agent-memory operations (`feedback-assetization`); cloning/pulling memory-carrying hubs remains covered.
 ---
 
 # Harness Sync
@@ -20,6 +20,7 @@ invented — these are already wired up:
 |---|---|---|
 | Dotfiles (`~/.zsh.d`, `~/.claude/{CLAUDE.md,settings.json,keybindings.json}`, `~/.codex/{config.toml,hooks.json,AGENTS.md,rules}`, `~/.agents/{hubs.md,workspace-sync-hook.sh}`, `~/.config/mise`, ...) | `git@github.com:maguroid/dotfiles.git` (branch `main`), local checkout `~/.local/share/chezmoi` | chezmoi (`chezmoi init --apply` first time, `chezmoi update` thereafter) |
 | Runtime/CLI tools (node, uv, etc.; Codex CLI is the exception below) | `~/.config/mise/config.toml` (itself chezmoi-managed) | mise (`mise install`, triggered automatically by a chezmoi run_onchange hook whenever the config changes) |
+| macOS system-integrated apps (currently azooKey and Hammerspoon) | `~/.config/homebrew/Brewfile` (chezmoi-managed) | Homebrew Cask (`brew bundle install --global --no-upgrade`, triggered by a run_onchange hook whenever the Brewfile changes). Hammerspoon is then started or reloaded; its synced `~/.hammerspoon/init.lua` enables launch at login. Accessibility approval remains per-device. |
 | Codex CLI | OpenAI's standalone package; installation is machine-local | Use the official installer on each Mac; do not declare Codex in mise. Follow [references/codex-cli.md](references/codex-cli.md). |
 | Tailscale OSS client on macOS | The two mise Go-backend declarations sync; the root-owned daemon copy, LaunchDaemon registration, and Tailnet login are machine-local | `mise install` provides `tailscale` / `tailscaled`; each Mac runs the upstream `install-system-daemon` and authenticates itself. See [references/tailscale-macos.md](references/tailscale-macos.md). |
 | Rust toolchain (`rustup`, `rustc`, `cargo`) | rustup stable channel; bootstrap logic in the chezmoi source | rustup (`run_before_05-install-rustup.sh`; shell PATH remains chezmoi-managed) |
@@ -99,6 +100,13 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
    - `run_onchange_after_10-mise-install.sh` runs `mise install` to pull every tool
      declared in `~/.config/mise/config.toml` (run_onchange: keyed to the mise config
      hash, so it fires only when that file changes).
+   - `run_onchange_after_12-homebrew-bundle.sh` runs
+     `brew bundle install --global --no-upgrade` when the managed Brewfile changes. It
+     installs missing macOS system-integrated apps without upgrading existing ones.
+   - `run_onchange_after_13-start-hammerspoon.sh` starts Hammerspoon after its app or
+     config changes, or reloads a running instance through `hs.ipc`. The synced config
+     enables launch at login. macOS Accessibility approval cannot be distributed and
+     must be granted once on each Mac.
    - `run_after_20-bootstrap-global-skills.sh` first pulls the `maguroid/skills` repo
      itself (`git pull --ff-only`, only if clean — so a stale `bootstrap.sh` is never
      used), then clones any missing registry repos and runs `bootstrap.sh`, which pulls
@@ -149,7 +157,8 @@ GitHub (`gh auth login` then `gh ssh-key add`, or manual key setup).
    chezmoi config and effective `autoCommit` / `autoPush` values, auth files
    (`~/.config/gogcli/credentials.json`, `~/.claude/.credentials.json`,
    `~/.codex/auth.json`, `~/.xurl`), SSH keys, the persistent chezmoi command,
-   rustup/Rust/Cargo, Wrangler named profiles/default/bindings, any real (non-symlink) directory
+   rustup/Rust/Cargo, Hammerspoon app/config/process/Accessibility/launch-at-login,
+   Wrangler named profiles/default/bindings, any real (non-symlink) directory
    under `~/.agents/skills` that isn't backed by a canonical repo, `mise doctor`, plus:
    - **Per-hub checks** (from `~/.agents/hubs.md`): hub missing on disk → MISSING (fix:
      re-run apply, which triggers hub sync); working tree dirty → WARNING; ahead/behind
@@ -192,8 +201,8 @@ credential setup. For each MISSING/WARNING item, tell the user what command to r
 - `~/.config/gogcli/credentials.json` missing → run `gog auth setup <email>` locally and
   complete its guided OAuth setup. Do not import credentials from another machine.
 - `~/.xurl` missing or its OAuth2 refresh token is invalid → do not copy the file from
-  another machine. Follow **xurl per-device OAuth setup** below; each machine keeps its
-  own OAuth tokens.
+  another machine. Follow [references/xurl-oauth.md](references/xurl-oauth.md); each
+  machine keeps its own OAuth tokens.
 - Wrangler `personal` / `hashigodaka` profile missing → run `wrangler auth create personal`
   and/or `wrangler auth create hashigodaka` interactively on that machine, choosing the
   corresponding Cloudflare account, then run `chezmoi apply`. Do not copy or commit the
@@ -212,64 +221,18 @@ credential setup. For each MISSING/WARNING item, tell the user what command to r
 - `rustup` or the stable Rust toolchain missing → the agent CAN fix this one: re-run
   `chezmoi apply`; the Rust pre-apply hook skips healthy installs and repairs only the
   missing pieces.
+- Hammerspoon app or `hs` CLI missing → the agent CAN fix this one: re-run
+  `chezmoi apply`; the managed Brewfile installs the Cask. If the process is not running,
+  run `open -a Hammerspoon`. If Accessibility is missing, open System Settings → Privacy
+  & Security → Accessibility and have the user enable Hammerspoon; this approval is
+  intentionally per-device and cannot be copied. The synced config enables launch at
+  login and loads `hs.ipc`, so restart Hammerspoon if doctor reports either one missing.
 - Hub dirty / diverged (WARNING) → do not auto-resolve; see Conflict Resolution Policy.
 - Tool resolving outside `~/.local/share/mise` (WARNING) → duplicate management; see
   Conflict Resolution Policy.
 - Tailscale daemon/login/SSH/duplicate-install findings → keep the mise declarations as
   the only synced state and repair the local Mac using
   [references/tailscale-macos.md](references/tailscale-macos.md).
-
-### xurl per-device OAuth setup
-
-Treat a working machine and the X Developer Portal as the configuration reference, but
-never copy the working machine's whole `~/.xurl`. Before creating or changing anything,
-have the user run these non-secret diagnostics on the working machine when available:
-
-```sh
-xurl --version
-xurl auth apps list
-xurl auth apps redirect-uri get default
-xurl auth status
-```
-
-Match the new machine's app name and callback URI to that output and to the Developer
-Portal **exactly**. Do not normalize `localhost` to `127.0.0.1` (or the reverse): X
-requires an exact callback match, and xurl's historical default is
-`http://localhost:8080/callback`. Register OAuth **2.0 Client ID / Client Secret**, not
-the OAuth1 API Key / API Key Secret. Never ask the user to paste either credential into
-chat. For a zsh session, offer this history-safe setup:
-
-```zsh
-read -r "client_id?OAuth2 Client ID: "
-read -rs "client_secret?OAuth2 Client Secret: "; printf '\n'
-xurl auth apps add default --client-id "$client_id" --client-secret "$client_secret" \
-  --redirect-uri 'http://localhost:8080/callback'
-unset client_id client_secret
-xurl auth oauth2 USERNAME --app default
-```
-
-If `app "default" already exists`, repeat the credential prompts and use this instead of
-`apps add`:
-
-```zsh
-xurl auth apps update default --client-id "$client_id" \
-  --client-secret "$client_secret" \
-  --redirect-uri 'http://localhost:8080/callback'
-unset client_id client_secret
-```
-
-To change only the callback, use:
-
-```sh
-xurl auth apps redirect-uri set default 'http://localhost:8080/callback'
-```
-
-For X's generic “You weren't able to give access to the App” page, inspect in this order:
-effective callback (`redirect-uri get`), exact Developer Portal callback, selected app
-and non-empty credentials (`apps list` / `status`), OAuth2-vs-OAuth1 credential type,
-then app permissions/package state. Client Secret is used at token exchange, so a failure
-on the authorization page itself points first to Client ID, callback, scopes, or X-side
-app state. After success, verify `xurl auth status` shows the username under OAuth2.
 
 ## Conflict Resolution Policy (follower machine)
 
@@ -327,9 +290,11 @@ chezmoi update
 ```
 
 One command refreshes the managed sync lanes: dotfiles, mise tools (run_onchange, fires
-when `~/.config/mise/config.toml` changed), skill repos, and hubs — the 20/30 `run_after`
-hooks run on every apply, so no separate mise, skill-bootstrap, or hub-sync step is
-needed. The standalone Codex CLI and machine-local credentials are explicit exceptions.
+when `~/.config/mise/config.toml` changed), Homebrew Casks (run_onchange, fires when the
+Brewfile changed), Hammerspoon startup/config reload, skill repos, and hubs — the 20/30
+`run_after` hooks run on every apply, so no separate mise, Cask, skill-bootstrap, or
+hub-sync step is needed. The standalone Codex CLI and machine-local credentials or macOS
+privacy approvals are explicit exceptions.
 Behaviors to know:
 
 - **Throttle**: if the 20/30 stages ran successfully within the last hour they print a
