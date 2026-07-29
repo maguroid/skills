@@ -35,15 +35,6 @@ rg -n "server/discover|subscriptions/listen|input_required|resultType|stateless|
 
 Before implementing server-side HTTP, present viable framework/runtime options and tradeoffs, recommend one, and obtain confirmation. Treat an explicit choice in the current turn as confirmation.
 
-## Validation Checklist
-
-- Run the project's TypeScript typecheck and focused tests.
-- Confirm every exposed tool/resource/prompt has a clear title/description and schema.
-- Confirm capability-dependent and era-specific calls are gated correctly.
-- Confirm 2026 HTTP handlers are stateless and do not emit/require session or resumability headers.
-- Confirm cache scope/TTL and HTTP authorization headers do not leak data across authorization contexts.
-- Confirm generated code uses TypeScript only.
-
 ## Refreshing MCP Information
 
 For updates, read `references/update-procedure.md` first. Track only stable specification and SDK release tags; never select `main`, `draft`, RC, alpha, beta, or canary as a snapshot source or canonical reference. A stable upstream snapshot can contain a historical `draft/` directory; do not use it as a canonical reference. Record selected tags, short commits, package/version mapping, and version risk in `references/repository-map.md`.
