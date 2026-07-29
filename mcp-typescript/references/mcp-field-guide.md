@@ -1,95 +1,59 @@
 # MCP Field Guide
 
-## Contract
+## Contract And Era
 
-MCP is a JSON-RPC 2.0 protocol for standardized context exchange between an AI host application and external programs. A host creates one MCP client per connected server. Each client maintains a direct connection to its server.
+MCP is JSON-RPC 2.0 for context exchange between a host/client and a server. Use the versioned schema as the contract when prose and SDK examples differ.
 
-MCP has two layers:
+The bundled stable specification is `2026-07-28`. It begins the **modern** era. Earlier revisions through `2025-11-25` are the **legacy** era. Do not accidentally combine them.
 
-- Data layer: lifecycle, capability negotiation, requests, responses, notifications, and primitives.
-- Transport layer: stdio for local process-spawned servers and Streamable HTTP for network or multi-client servers.
+| Concern | Legacy wire | 2026-07-28 wire |
+| --- | --- | --- |
+| Bootstrap | `initialize` then `notifications/initialized` | `server/discover` advertisement or an inline request with `_meta` |
+| State | Session/connection-oriented | Stateless: each request supplies required protocol version and client capabilities in `_meta`; client info is optional/SHOULD be supplied |
+| HTTP session | `Mcp-Session-Id` | Do not mint, require, or echo it; ignore a received legacy header |
+| Server-to-client work | Direct server-initiated requests | MRTR `input_required`; client retries the original request with `inputResponses` and `requestState` |
+| Result shape | Prior result schema | Every result has `resultType`; absent means `complete` only for older-server compatibility |
+| Updates | Unsolicited notifications/subscription APIs | `subscriptions/listen` stream filtering |
+| Resumption | Legacy SSE/session techniques | No `Last-Event-ID` stream resumption |
 
-An implementation must respect initialization, negotiated capabilities, method schemas, notifications, pagination, and error surfaces. Do not reduce MCP to an ad hoc REST API or a plain function registry.
+The v2 SDK supports both eras. A v2 client remains legacy by default. Use `versionNegotiation: { mode: 'auto' }` to probe `server/discover` then fall back, or pin `2026-07-28` when fallback is unacceptable. On servers, use `createMcpHandler` (HTTP) or `serveStdio` (stdio) for the modern-capable entry points and design handlers as stateless.
 
-## Lifecycle And Capabilities
+## Wire Versus SDK Public API
 
-Connections begin with `initialize`, including protocol version, implementation info, and client capabilities. The server replies with its selected protocol version, implementation info, instructions, and server capabilities. The client then sends `notifications/initialized`.
+`resultType` and the reserved `_meta` envelope are required 2026 wire fields. The official v2 SDK's codec adds and consumes them: public handler return types and public result types intentionally do not expose `resultType`. Do not manually add `resultType`, construct/read reserved `_meta` keys, or couple application logic to raw wire envelopes; use the documented SDK handler context, result, capability, and version APIs instead.
 
-Rules:
+## Modern Request Handling
 
-- Do not call capability-dependent methods unless the peer declared support.
-- Use server instructions for cross-tool workflow guidance and constraints, not as a duplicate of every tool description.
-- Treat the versioned schema in the spec repository as the final contract when docs/examples are ambiguous.
+- Every modern request carries `_meta` with required protocol version and client capabilities; client info and log level are optional. The SDK owns this envelope. Do not infer metadata from a prior connection.
+- `server/discover` is mandatory for servers and advertises supported versions, capabilities, instructions, and cache hints. Server identity is not a `DiscoverResult` body field: it is supplied on every response, including discovery, as `result._meta["io.modelcontextprotocol/serverInfo"]`. In v2 clients, use `client.getServerVersion()` rather than parsing that wire metadata. Clients may call an operation directly, but use discovery for version/capability presentation and compatibility probing.
+- `resultType: "complete"` is the final result. `resultType: "input_required"` carries MRTR `inputRequests` and optional opaque `requestState`.
+- Treat `requestState` as attacker-controlled when it returns. Bind integrity-protected state to the authenticated principal, original request, and a short expiry; reject failed validation and prevent replay where required.
+- Use `subscriptions/listen` for a durable notification stream. Do not rely on legacy `resources/subscribe` semantics for 2026 connections.
+- Tasks are an extension capability, not a core feature. Advertise and negotiate the extension before using task methods; do not assume a peer supports them.
 
-## Server Primitives
+## Primitives
 
-Use the smallest primitive that matches the user-facing behavior.
+- **Tools**: model-controlled actions, mutations, searches, computations, or API calls. Use a stable name, one coherent purpose, explicit input schema, helpful description, and structured output when consumers need it.
+- **Resources**: read-only application-controlled context. Use fixed URIs or templates, include MIME type, and return resource links instead of oversized tool content when appropriate.
+- **Prompts**: user-controlled reusable interaction templates.
 
-### Tools
+## Client Features And Deprecations
 
-Tools are model-controlled executable actions. Use tools for API calls, mutations, searches, computations, and operations the model should decide to invoke.
+Sampling, Roots, and Logging remain specified but are deprecated as of `2026-07-28`; do not choose them for new design. Prefer direct model-provider integration, explicit tool/resource parameters or configuration, stderr/OpenTelemetry respectively. Existing implementations may retain them while migrating.
 
-Good tools:
+MRTR replaces direct server-initiated Sampling, Elicitation, and Roots requests on modern wire. Never request secrets with form elicitation; use URL/out-of-band authorization flows. Roots remain coordination hints, never an access-control boundary.
 
-- Have stable machine-friendly names.
-- Have a single coherent purpose.
-- Include precise input schemas and helpful field descriptions.
-- Return text for the model and `structuredContent` when clients need machine-readable data.
-- Annotate destructive/read-only/idempotent behavior when supported by the SDK.
+## Errors, Caching, And Security
 
-### Resources
-
-Resources are read-only context exposed by URI. Use resources for files, database schemas, records, logs, documents, configuration, and other data the host application chooses to attach.
-
-Use direct resources for fixed URIs and resource templates for parameterized URIs. Include MIME types. Prefer resource links from tools when a result is too large to inline.
-
-### Prompts
-
-Prompts are user-controlled reusable templates. Use prompts for workflows users intentionally invoke, such as review templates, query patterns, or domain-specific procedures.
-
-## Client Primitives
-
-Clients may expose capabilities that let servers build richer interactions.
-
-### Sampling
-
-Sampling lets a server request an LLM completion from the client. Use it when a server needs model assistance but should stay model-independent. Clients should keep user oversight and apply their own model/security policy.
-
-### Elicitation
-
-Elicitation lets a server ask the user for structured input while handling a request. Form elicitation must not request secrets. Use URL or out-of-band flows for API keys, passwords, payment data, OAuth, and similarly sensitive data.
-
-### Roots
-
-Roots tell a server which filesystem directories are relevant. They are coordination hints, not a security boundary. Enforce access with OS permissions, sandboxing, allow-lists, and server-side checks.
-
-### Logging
-
-Logging lets servers send structured diagnostic notifications to clients. Use it for observable progress and debug information, not for sensitive data.
-
-## Error Model
-
-Distinguish tool-level and protocol-level errors.
-
-- Tool-level error: the tool executed but the requested business operation failed. Return a tool result with `isError: true` so the model can observe and recover.
-- Protocol-level error: invalid method, invalid params, unsupported capability, malformed JSON-RPC, timeout, or internal protocol failure. Let the SDK produce or throw its protocol error type, such as `McpError`, as appropriate.
-
-Clients must check both `result.isError` and thrown errors.
-
-## Security Baseline
-
-- Document server capabilities and required permissions.
-- Validate all tool inputs and resource URIs server-side.
-- Use least privilege for files, environment variables, credentials, and network access.
-- Treat local servers as code running with the user's local permissions.
-- For local Streamable HTTP servers, protect against DNS rebinding with Host header validation or framework helpers that provide it.
-- Do not write diagnostics or logs to stdout for stdio servers; stdout is the protocol stream. Use stderr for process logs.
-- For remote servers, implement appropriate authentication and authorization. Prefer standard OAuth flows when required.
+- A business failure after a tool ran is a tool result with `isError: true`. Invalid methods/params, unsupported capabilities, malformed JSON-RPC, and internal protocol failures are protocol errors. Clients handle both `isError` and thrown errors.
+- Modern cacheable results use `ttlMs` and `cacheScope` (`public` or `private`), rather than treating HTTP cache headers as a substitute for MCP semantics. Never reuse `private` data across authorization contexts.
+- On HTTP, align the required `MCP-Protocol-Version` header with `_meta`; use the specification's authorization/`WWW-Authenticate` and insufficient-scope flow. Do not treat `401`/`403` as protocol-era evidence.
+- Do not use credentials to fetch server-provided icons. Validate tool inputs and resource URIs server-side, use least privilege, and authenticate/authorize remote servers.
+- Use Host validation or framework DNS-rebinding protection for local HTTP servers. Keep stdio stdout exclusively for protocol messages and log to stderr.
 
 ## Transport Selection
 
-- Use stdio for local single-client integrations launched by a host or CLI.
-- Use Streamable HTTP for remote servers, browser-accessible clients, or multi-client servers.
-- Use stateful Streamable HTTP when sessions, resumability, server-initiated streaming, or per-session state is needed.
-- Use stateless Streamable HTTP only when each request can be handled independently.
-- Use legacy SSE only for compatibility with older servers.
+- Use **stdio** for a local process spawned by the host.
+- Use **Streamable HTTP** for remote, browser-accessible, or multi-client operation.
+- Use legacy **HTTP+SSE** only to maintain an existing peer; it is deprecated.
+- Select and confirm the server-side HTTP framework before implementation. Then verify CORS, Host handling, authorization, shutdown, and the selected era's behavior.

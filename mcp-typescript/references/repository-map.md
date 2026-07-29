@@ -1,69 +1,63 @@
 # Repository Map
 
-The bundled repositories were cloned with `ghq` and copied into this skill so future agents can inspect them without network access.
+The bundled repositories are offline, `.git`-free snapshots of official stable releases. Do not replace them with `main`, `draft`, RC, alpha, beta, or canary sources unless the user explicitly asks for prerelease coverage.
 
-## Bundled Tags
+## Bundled Releases
 
-- `references/repos/modelcontextprotocol`: `modelcontextprotocol/modelcontextprotocol` tag `2025-11-25`, commit `38c84e9f`.
-- `references/repos/typescript-sdk`: `modelcontextprotocol/typescript-sdk` tag `v1.29.0`, commit `e12cbd70`.
+| Path | Official release/tag | Commit | Status and purpose |
+| --- | --- | --- | --- |
+| `references/repos/modelcontextprotocol` | `2026-07-28` | `5f5440bb` | Stable MCP specification source of truth |
+| `references/repos/typescript-sdk-v2` | `@modelcontextprotocol/server@2.0.0` (v2 workspace release) | `cc4b4161` | Stable v2.0.0 split-package default for new code |
+| `references/repos/typescript-sdk-v1` | `1.30.0` | `2d889f2b` | Stable v1 compatibility reference only |
 
-These are stable release tags. Do not replace bundled repositories with `main`, `draft`, RC, alpha, beta, or other prerelease tags unless the user explicitly requests prerelease coverage.
+The v2 workspace release publishes aligned `@modelcontextprotocol/client`, `core`, `server`, `node`, and framework packages at `2.0.0`; the representative server release tag identifies the shared commit. The v1 release uses the single `@modelcontextprotocol/sdk` package. Record the package tag, not an invented monorepo `v2.0.0` tag.
 
-## Version Risk Notes
+## Version Risk
 
-- The SDK bundle intentionally tracks stable `v1.29.0`, not v2 alpha tags. Use `@modelcontextprotocol/sdk/...` imports for new examples unless the target project already uses a different SDK version.
-- The SDK supports protocol version negotiation across current stable spec versions. Still inspect `src/types.ts`, `src/spec.types.ts`, and `docs/protocol.md` before implementing version-sensitive behavior.
-- Do not copy APIs from a prior v2 main bundle such as split packages (`@modelcontextprotocol/server`, `@modelcontextprotocol/client`) into v1 projects.
-- Tasks are experimental in the SDK and may change; prefer ordinary tools unless the user specifically needs deferred or resumable work.
+- Use v2 split packages for new implementation; do not major-upgrade an existing v1 project without an explicit request.
+- v2 supports both legacy and modern protocol eras. Its client defaults to the legacy `initialize` wire. Explicitly choose `versionNegotiation`, `createMcpHandler`, or `serveStdio` when supporting the 2026 wire.
+- `2026-07-28` is materially incompatible at wire level: stateless `_meta`, `server/discover`, `resultType`, MRTR, and subscription streams replace session/direct-request assumptions. Test each advertised era.
+- Sampling, Roots, and Logging are deprecated in the specification. Tasks are extension-negotiated. HTTP+SSE is compatibility-only, and modern streams are not resumable.
 
-## MCP Specification Repository
+## Specification Repository
 
-Important paths:
+Read these paths first:
 
-- `README.md`: repository purpose and current schema location.
-- `docs/docs.json`: Mintlify navigation and the currently marked latest spec version.
-- `docs/docs/learn/architecture.mdx`: host/client/server architecture, protocol layers, primitives, lifecycle.
-- `docs/docs/learn/server-concepts.mdx`: tools, resources, prompts, and control model.
-- `docs/docs/learn/client-concepts.mdx`: elicitation, roots, sampling.
-- `docs/docs/develop/build-server.mdx`: server development guide.
-- `docs/docs/develop/build-client.mdx`: client development guide.
-- `docs/docs/tutorials/security/security_best_practices.mdx`: security guidance.
-- `docs/specification/<version>/`: versioned protocol specification.
-- `schema/<version>/schema.ts`: TypeScript-first protocol schema.
-- `schema/<version>/schema.json`: generated JSON Schema.
-
-Useful searches:
-
-```sh
-rg -n "initialize|capabilities|notifications/initialized|protocolVersion" references/repos/modelcontextprotocol/docs/specification
-rg -n "tools/list|tools/call|resources/read|prompts/get|pagination|completion" references/repos/modelcontextprotocol/docs/specification
-rg -n "authorization|OAuth|DNS rebinding|Host|security|consent|secrets" references/repos/modelcontextprotocol/docs
-```
-
-## TypeScript SDK Repository
-
-The bundled SDK is the latest stable v1 tag. Its public package is `@modelcontextprotocol/sdk`; imports use subpaths such as `@modelcontextprotocol/sdk/server/mcp.js`, not the v2 split packages.
-
-Important paths:
-
-- `README.md`: installation, quick start, package expectations, examples index.
-- `docs/server.md`: server guide for transports, tools, resources, prompts, logging, progress, sampling, elicitation, roots, shutdown, DNS rebinding protection.
-- `docs/client.md`: client guide for transports, auth, discovery, invocation, server-initiated requests, errors, middleware, resumption.
-- `docs/capabilities.md`: sampling, elicitation, and experimental task execution.
-- `docs/protocol.md`: ping, progress, cancellation, pagination, capability negotiation, and schema details.
-- `src/examples/server/`: runnable server examples for Streamable HTTP, state, OAuth, schema libraries, elicitation, sampling, progress, tasks, and compatibility.
-- `src/examples/client/`: runnable client examples for Streamable HTTP, OAuth, fallback, parallel calls, elicitation, tasks, and resumption.
-- `src/server/mcp.ts`: high-level `McpServer` API.
-- `src/server/index.ts`: lower-level server protocol implementation.
-- `src/client/index.ts`: client implementation.
-- `src/shared/protocol.ts`: JSON-RPC routing, request/response correlation, capability checks, transport management.
-- `src/types.ts` and `src/spec.types.ts`: protocol types and generated spec types.
+- `docs/specification/2026-07-28/basic/index.mdx`: JSON-RPC contract, stateless `_meta`, result types, cache behavior.
+- `docs/specification/2026-07-28/basic/versioning.mdx`: protocol selection.
+- `docs/specification/2026-07-28/basic/transports/streamable-http.mdx`: headers, sessions, authorization, streams, and non-resumption.
+- `docs/specification/2026-07-28/basic/patterns/mrtr.mdx`: `input_required`, retry state, and security.
+- `docs/specification/2026-07-28/server/discover.mdx`: discovery advertisement.
+- `docs/specification/2026-07-28/server/resources.mdx`: resource behavior and subscriptions.
+- `docs/specification/2026-07-28/deprecated.mdx`: Roots/Sampling/Logging deprecations.
+- `schema/2026-07-28/schema.ts` and `schema.json`: protocol schema.
 
 Useful searches:
 
 ```sh
-rg -n "registerTool|registerResource|registerPrompt|ResourceTemplate|completable" references/repos/typescript-sdk
-rg -n "StdioServerTransport|StreamableHTTPClientTransport|StreamableHTTPServerTransport|SSEClientTransport" references/repos/typescript-sdk
-rg -n "isError|progressToken|onprogress|requestSampling|elicit|listRoots|sendRootsListChanged" references/repos/typescript-sdk
-rg -n "createMcpExpressApp|hostHeaderValidation|Host|DNS rebinding|requireBearerAuth" references/repos/typescript-sdk
+rg -n "server/discover|input_required|resultType|subscriptions/listen|stateless" references/repos/modelcontextprotocol/docs/specification/2026-07-28
+rg -n "Mcp-Session-Id|Last-Event-ID|MCP-Protocol-Version|cacheScope|ttlMs" references/repos/modelcontextprotocol/docs/specification/2026-07-28
 ```
+
+## TypeScript SDK v2 Repository
+
+Important paths:
+
+- `docs/index.md` and `docs/get-started/`: v2 quick starts and package model.
+- `docs/protocol-versions.md`: legacy/modern negotiation matrix and opt-in semantics.
+- `docs/serving/stdio.md` and `docs/serving/http.md`: `serveStdio` and `createMcpHandler` entry points.
+- `docs/servers/`: tools, resources, prompts, MRTR, notification, sampling, and errors.
+- `docs/clients/`: connecting, calling, subscriptions, auth, middleware, and roots.
+- `docs/migration/upgrade-to-v2.md`: codemod and manual migration boundary.
+- `packages/client/`, `packages/server/`, and `packages/core/`: split public packages.
+- `examples/`: executable v2 examples.
+
+## TypeScript SDK v1 Compatibility Repository
+
+Read only for a project already on v1:
+
+- `docs/server.md`, `docs/client.md`, `docs/capabilities.md`, `docs/protocol.md`.
+- `src/examples/server/` and `src/examples/client/`.
+- `src/server/mcp.ts`, `src/client/index.ts`, and `src/types.ts`.
+
+Do not copy v1 imports or session/direct-request patterns into v2 examples.

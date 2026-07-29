@@ -1,70 +1,65 @@
 # TypeScript SDK Patterns
 
-## Version First
+## Select The Generation First
 
-Always inspect the target project before coding:
+Inspect the target project before coding:
 
 ```sh
-rg -n "@modelcontextprotocol|McpServer|StdioServerTransport|StreamableHTTP" package.json pnpm-lock.yaml package-lock.json yarn.lock src test
+rg -n "@modelcontextprotocol|McpServer|createMcpHandler|serveStdio|StdioServerTransport" package.json pnpm-lock.yaml package-lock.json yarn.lock src test
 ```
 
-If the project already uses an MCP SDK major version, follow that version's imports and APIs. The bundled stable v1 SDK uses these import subpaths:
+Use the v2.0.0 split packages for a new project. Use `@modelcontextprotocol/sdk/...` only in an existing v1 project that the user has not asked to upgrade. Do not mix generation imports in one example or source file.
 
-- `@modelcontextprotocol/sdk/server/mcp.js`
-- `@modelcontextprotocol/sdk/server/stdio.js`
-- `@modelcontextprotocol/sdk/server/streamableHttp.js`
-- `@modelcontextprotocol/sdk/client/index.js`
-- `@modelcontextprotocol/sdk/client/stdio.js`
-- `@modelcontextprotocol/sdk/client/streamableHttp.js`
+| Scope | v2.0.0 default | v1.30.0 compatibility only |
+| --- | --- | --- |
+| Server | `@modelcontextprotocol/server` | `@modelcontextprotocol/sdk/server/mcp.js` |
+| stdio server | `@modelcontextprotocol/server/stdio` | `@modelcontextprotocol/sdk/server/stdio.js` |
+| Client | `@modelcontextprotocol/client` | `@modelcontextprotocol/sdk/client/index.js` |
+| stdio client | `@modelcontextprotocol/client/stdio` | `@modelcontextprotocol/sdk/client/stdio.js` |
+| HTTP client | `@modelcontextprotocol/client` | `@modelcontextprotocol/sdk/client/streamableHttp.js` |
 
-The bundled SDK is the latest stable v1 release tag and uses the single `@modelcontextprotocol/sdk` package. Do not use v2 split-package imports unless the target project already uses v2 or the user explicitly asks for v2/prerelease work.
-
-## Minimal v1 stdio Server
+## Minimal v2 Stdio Server
 
 ```ts
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { McpServer } from '@modelcontextprotocol/server';
+import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import * as z from 'zod/v4';
 
-const server = new McpServer({ name: 'example-server', version: '1.0.0' });
+void serveStdio(() => {
+  const server = new McpServer({ name: 'example-server', version: '1.0.0' });
 
-server.registerTool(
-  'greet',
-  {
-    title: 'Greet',
-    description: 'Greet a person by name.',
-    inputSchema: { name: z.string().describe('Name to greet') },
-  },
-  async ({ name }) => ({
-    content: [{ type: 'text', text: `Hello, ${name}!` }],
-  }),
-);
+  server.registerTool(
+    'greet',
+    {
+      title: 'Greet',
+      description: 'Greet a person by name.',
+      inputSchema: z.object({ name: z.string().describe('Name to greet') }),
+    },
+    async ({ name }) => ({
+      content: [{ type: 'text', text: `Hello, ${name}!` }],
+    }),
+  );
 
-const transport = new StdioServerTransport();
-await server.connect(transport);
+  return server;
+});
 ```
 
-For stdio, send diagnostics to stderr, not stdout.
+`serveStdio` is a 2026-capable entry point, but choosing v2 does not itself force modern wire behavior. Treat support for the 2026 era as an explicit product decision, test both eras when you advertise both, and write diagnostics only to stderr.
 
-## Server Registration Patterns
+## v2 Server Registration
 
-### Tools
-
-Use `registerTool` for model-invoked actions. Add `outputSchema` and `structuredContent` when callers need machine-readable results.
+Use `registerTool`, `registerResource`, and `registerPrompt`. Give every public surface a title/description and schema. Add `outputSchema` and `structuredContent` when a consumer needs a machine-readable result.
 
 ```ts
 server.registerTool(
   'calculate-bmi',
   {
-    title: 'BMI Calculator',
+    title: 'BMI calculator',
     description: 'Calculate Body Mass Index.',
-    inputSchema: {
-      weightKg: z.number(),
-      heightM: z.number(),
-    },
-    outputSchema: { bmi: z.number() },
+    inputSchema: z.object({ weightKg: z.number(), heightM: z.number() }),
+    outputSchema: z.object({ bmi: z.number() }),
   },
-  async ({ weightKg, heightM }) => {
+  ({ weightKg, heightM }) => {
     const output = { bmi: weightKg / (heightM * heightM) };
     return {
       content: [{ type: 'text', text: JSON.stringify(output) }],
@@ -74,131 +69,65 @@ server.registerTool(
 );
 ```
 
-For named structured outputs, prefer `type` aliases over interfaces when the SDK expects index-compatible objects.
+Return `isError: true` when a tool executed but its domain action failed. Do not convert invalid protocol usage or unsupported methods into a successful-looking tool result.
 
-### Tool Errors
+## v2 HTTP And 2026 Wire
 
-Return `isError: true` when the tool ran but the domain operation failed.
+Before choosing Express, Fastify, Hono, a Web-standard runtime, or another framework, present options/tradeoffs and obtain the user's confirmation. Then use the selected framework adapter and read the matching `docs/serving/` guide.
+
+Use `createMcpHandler` to expose the v2 HTTP entry. Its factory creates a server for the request and receives its era; do not put client identity, capabilities, or task/request state in process-local session state.
 
 ```ts
-return {
-  content: [{ type: 'text', text: `HTTP ${res.status}: ${res.statusText}` }],
-  isError: true,
-};
+import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
+
+const handler = createMcpHandler(({ era }) => {
+  const server = new McpServer({ name: 'example-server', version: '1.0.0' });
+  // Register stateless handlers. Branch only where legacy and modern behavior differs.
+  return server;
+});
+
+// Adapt handler.fetch(request) to the confirmed HTTP framework/runtime.
 ```
 
-### Resources
+The default handler additionally supports stateless legacy HTTP traffic. Use its `legacy` policy deliberately; reject legacy traffic only when compatibility is not promised. For modern connections, use MRTR helpers/patterns for additional input, `subscriptions/listen` for notification streams, and per-request metadata. Do not emit `Mcp-Session-Id` or `Last-Event-ID` behavior.
 
-Use `registerResource` for read-only context.
+## Minimal v2 Client
 
 ```ts
-server.registerResource(
-  'config',
-  'config://app',
-  {
-    title: 'Application Config',
-    description: 'Application configuration.',
-    mimeType: 'application/json',
-  },
-  async uri => ({
-    contents: [{ uri: uri.href, text: JSON.stringify({ ok: true }) }],
-  }),
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+
+const client = new Client(
+  { name: 'example-client', version: '1.0.0' },
+  { versionNegotiation: { mode: 'auto' } },
 );
-```
 
-Use `ResourceTemplate` for dynamic URI patterns and include a `list` callback when instances are discoverable.
-
-### Prompts
-
-Use `registerPrompt` for user-invoked reusable templates.
-
-```ts
-server.registerPrompt(
-  'review-code',
-  {
-    title: 'Code Review',
-    description: 'Review code for correctness and maintainability.',
-    argsSchema: z.object({ code: z.string() }),
-  },
-  ({ code }) => ({
-    messages: [
-      {
-        role: 'user' as const,
-        content: { type: 'text' as const, text: `Review this code:\n\n${code}` },
-      },
-    ],
-  }),
+await client.connect(
+  new StreamableHTTPClientTransport(new URL('http://localhost:3000/mcp')),
 );
-```
-
-## Streamable HTTP Server
-
-Use Streamable HTTP for remote or multi-client servers. Prefer `createMcpExpressApp` for local Host header protection.
-
-Key points:
-
-- Use `sessionIdGenerator` for stateful sessions.
-- Use `sessionIdGenerator: undefined` only for stateless servers.
-- Expose MCP-specific headers when browser clients need CORS.
-- Close all session transports during shutdown.
-- Validate Host headers on localhost servers.
-
-Read:
-
-- `references/repos/typescript-sdk/docs/server.md`
-- `references/repos/typescript-sdk/src/examples/server/simpleStreamableHttp.ts`
-- `references/repos/typescript-sdk/src/examples/server/simpleStatelessStreamableHttp.ts`
-- `references/repos/typescript-sdk/src/examples/server/honoWebStandardStreamableHttp.ts`
-
-## Server-Initiated Requests
-
-Declare or check matching client capabilities before using server-initiated requests.
-
-- Sampling: call `server.server.createMessage(...)`.
-- Elicitation: call `server.server.elicitInput(...)` or send `elicitation/create`.
-- Roots: call `server.server.listRoots()` when the client supports roots.
-- Logging: declare `{ capabilities: { logging: {} } }` and call `server.sendLoggingMessage(..., extra.sessionId)`.
-
-Never request secrets through form elicitation.
-
-## Minimal v1 Client
-
-```ts
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-
-const client = new Client({ name: 'example-client', version: '1.0.0' });
-const transport = new StreamableHTTPClientTransport(new URL('http://localhost:3000/mcp'));
-
-await client.connect(transport);
 
 try {
   const result = await client.callTool({
     name: 'greet',
     arguments: { name: 'Ada' },
   });
-
-  if (result.isError) {
-    console.error('Tool error:', result.content);
-  } else {
-    console.log(result.content);
-  }
+  if (result.isError) console.error('Tool error:', result.content);
+  else console.log(result.content);
 } finally {
-  await transport.terminateSession?.();
   await client.close();
 }
 ```
 
-For local process-spawned servers, use `StdioClientTransport` from `@modelcontextprotocol/sdk/client/stdio.js`.
+`versionNegotiation` is the client-side opt-in. The default remains the legacy `initialize` handshake. `mode: 'auto'` probes with `server/discover` and falls back; `{ pin: '2026-07-28' }` refuses fallback. Do not default a spawn-per-invocation stdio CLI to `auto`: its compatibility probe can launch an extra short-lived child and wait for a legacy timeout.
 
-## Client Discovery
+For local child processes import `StdioClientTransport` from `@modelcontextprotocol/client/stdio`. When using a cached discovery verdict, own its freshness policy; stale legacy verdicts can mask a server upgrade.
 
-Loop on `nextCursor` for paginated list calls:
+## Client Discovery, Pagination, And Errors
+
+Loop over `nextCursor` for every paginated list. Handle `result.isError` as well as SDK/protocol errors thrown by `connect` or calls. Read the v2 package's error exports before naming an error class; v1 `McpError` is not the v2 default error API.
 
 ```ts
 const allTools = [];
 let cursor: string | undefined;
-
 do {
   const page = await client.listTools({ cursor });
   allTools.push(...page.tools);
@@ -206,70 +135,15 @@ do {
 } while (cursor);
 ```
 
-Apply the same pattern to resources, resource templates, and prompts.
+## v1 Compatibility Boundary
 
-## Client Server-Initiated Handlers
+Keep existing v1 projects on `@modelcontextprotocol/sdk` and follow `references/repos/typescript-sdk-v1/docs/server.md` or `docs/client.md`. The legacy stdio shape is `server.connect(new StdioServerTransport())`; its Streamable HTTP/session APIs, direct server-initiated requests, and import subpaths are not templates for new v2 code.
 
-Declare capabilities and register handlers when the client supports server-initiated flows.
-
-```ts
-const client = new Client(
-  { name: 'example-client', version: '1.0.0' },
-  {
-    capabilities: {
-      sampling: {},
-      elicitation: { form: {} },
-      roots: {},
-    },
-  },
-);
-
-client.setRequestHandler('sampling/createMessage', async request => ({
-  model: 'local-policy-model',
-  role: 'assistant' as const,
-  content: { type: 'text' as const, text: 'Response from the client model' },
-}));
-
-client.setRequestHandler('elicitation/create', async request => {
-  if (request.params.mode === 'form') {
-    return { action: 'decline' as const };
-  }
-  return { action: 'decline' as const };
-});
-
-client.setRequestHandler('roots/list', async () => ({
-  roots: [{ uri: 'file:///path/to/workspace', name: 'Workspace' }],
-}));
-```
-
-## Client Error Handling
-
-Handle both tool-level failures and thrown SDK/protocol failures.
-
-```ts
-import { McpError } from '@modelcontextprotocol/sdk/types.js';
-
-try {
-  const result = await client.callTool({ name: 'fetch-data', arguments: { url } });
-  if (result.isError) {
-    console.error('Tool error:', result.content);
-    return;
-  }
-} catch (error) {
-  if (error instanceof McpError) {
-    console.error(`MCP error ${error.code}: ${error.message}`);
-  } else {
-    throw error;
-  }
-}
-```
+When the user requests a v1-to-v2 migration, run the official v2 codemod from the package root, resolve its markers, typecheck, format, and test. Then separately decide whether to opt into `2026-07-28`; an SDK-major migration does not imply a wire-protocol migration.
 
 ## Tests And Smoke Checks
 
-Prefer tests that exercise protocol behavior, not only handler internals:
-
-- Instantiate server and client with in-memory or stdio transports when available.
-- Verify `listTools`, `callTool`, `listResources`, `readResource`, `listPrompts`, and `getPrompt` behavior.
-- Verify `isError` results for expected domain failures.
-- Verify missing capability paths fail clearly.
-- For HTTP, test session handling, auth, Host validation, CORS headers, shutdown, and reconnect/resumption behavior when relevant.
+- Prefer a linked in-memory or stdio client/server test that covers list and invocation behavior.
+- Verify expected domain failures return `isError`.
+- Verify capability, pagination, and era-specific behavior.
+- For HTTP, test the confirmed framework integration, Host/DNS-rebinding handling, CORS, authorization, shutdown, and both advertised eras.
