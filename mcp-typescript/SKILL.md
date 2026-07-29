@@ -31,16 +31,9 @@ rg -n "McpServer|StdioServerTransport|StreamableHTTP|registerTool" references/re
 rg -n "server/discover|subscriptions/listen|input_required|resultType|stateless|Mcp-Session-Id" references/repos/modelcontextprotocol/docs/specification/2026-07-28
 ```
 
-## Implementation Principles
+## HTTP Framework Selection
 
-- Treat MCP as a protocol contract. Respect lifecycle or modern per-request metadata, capability negotiation, JSON-RPC methods, pagination, cancellation, and error surfaces.
-- Before implementing server-side HTTP, present viable framework/runtime options and tradeoffs, recommend one, and obtain confirmation. Treat an explicit choice in the current turn as confirmation.
-- Return a tool-level `isError: true` result when a tool ran but the domain operation failed. Use thrown/protocol errors for invalid protocol use, unsupported methods, and internal failures.
-- In 2026-07-28, do not depend on `initialize`, `Mcp-Session-Id`, shared connection state, or resumable SSE. Encode only integrity-protected, expiry-bounded retry state in MRTR `requestState`.
-- Do not collect secrets through form elicitation. Use URL/out-of-band flows for credentials, payments, OAuth, or API keys.
-- Treat roots as advisory, not a security boundary. Enforce filesystem and authorization restrictions independently. Prefer direct provider integration over new Sampling/Roots/Logging use; those features are deprecated in 2026-07-28.
-- For local HTTP servers, protect against DNS rebinding with framework protection or a Host allow-list. For stdio, write diagnostics only to stderr.
-- Handle both `result.isError` and thrown SDK/protocol errors in clients. Loop over `nextCursor` for paginated lists.
+Before implementing server-side HTTP, present viable framework/runtime options and tradeoffs, recommend one, and obtain confirmation. Treat an explicit choice in the current turn as confirmation.
 
 ## Validation Checklist
 
