@@ -1,4 +1,4 @@
 interface:
-  display_name: "記事作成"
-  short_description: "技術記事の企画・検証・執筆・レビュー・公開を支援する"
-  default_prompt: "Use $article-authoring to plan and draft a technical article for the appropriate publication."
+  display_name: "Zenn記事作成"
+  short_description: "個人・組織のZenn技術記事を企画・検証・執筆する"
+  default_prompt: "Use $article-authoring to plan and draft a Zenn technical article for the appropriate author or Publication."
