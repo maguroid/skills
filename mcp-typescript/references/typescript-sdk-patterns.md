@@ -137,7 +137,7 @@ do {
 
 ## v1 Compatibility Boundary
 
-Keep existing v1 projects on `@modelcontextprotocol/sdk` and follow `references/repos/typescript-sdk-v1/docs/server.md` or `docs/client.md`. The legacy stdio shape is `server.connect(new StdioServerTransport())`; its Streamable HTTP/session APIs, direct server-initiated requests, and import subpaths are not templates for new v2 code.
+Keep existing v1 projects on `@modelcontextprotocol/sdk` and follow `references/compatibility/typescript-sdk-v1/docs/server.md` or `docs/client.md`. The legacy stdio shape is `server.connect(new StdioServerTransport())`; its Streamable HTTP/session APIs, direct server-initiated requests, and import subpaths are not templates for new v2 code.
 
 When the user requests a v1-to-v2 migration, run the official v2 codemod from the package root, resolve its markers, typecheck, format, and test. Then separately decide whether to opt into `2026-07-28`; an SDK-major migration does not imply a wire-protocol migration.
 

@@ -7,10 +7,10 @@ The bundled repositories are offline, `.git`-free snapshots of official stable r
 | Path | Official release/tag | Commit | Status and purpose |
 | --- | --- | --- | --- |
 | `references/repos/modelcontextprotocol` | `2026-07-28` | `5f5440bb` | Stable MCP specification source of truth |
-| `references/repos/typescript-sdk-v2` | `@modelcontextprotocol/server@2.0.0` (v2 workspace release) | `cc4b4161` | Stable v2.0.0 split-package default for new code |
-| `references/repos/typescript-sdk-v1` | `1.30.0` | `2d889f2b` | Stable v1 compatibility reference only |
+| `references/repos/typescript-sdk` | `@modelcontextprotocol/server@2.0.0` (v2 workspace release) | `cc4b4161` | Stable v2.0.0 split-package default for new code |
+| `references/compatibility/typescript-sdk-v1` | `1.30.0` | `2d889f2b` | Stable v1 compatibility reference only |
 
-The v2 workspace release publishes aligned `@modelcontextprotocol/client`, `core`, `server`, `node`, and framework packages at `2.0.0`; the representative server release tag identifies the shared commit. The v1 release uses the single `@modelcontextprotocol/sdk` package. Record the package tag, not an invented monorepo `v2.0.0` tag.
+The versionless `typescript-sdk` path always denotes the current default SDK snapshot. The v2 workspace release publishes aligned `@modelcontextprotocol/client`, `core`, `server`, `node`, and framework packages at `2.0.0`; the representative server release tag identifies the shared commit. The v1 release uses the single `@modelcontextprotocol/sdk` package. Record the package tag, not an invented monorepo `v2.0.0` tag.
 
 ## Version Risk
 

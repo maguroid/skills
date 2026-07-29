@@ -56,7 +56,7 @@ Do not hide a stable SDK/spec mismatch by selecting an RC, beta, or `main`. Docu
 
 ## Update Bundled Snapshots
 
-Use generation-named directories and delete stale files within each destination. Keep no `.git` metadata:
+Keep the current default SDK at the versionless `references/repos/typescript-sdk/` path and isolate v1 under `references/compatibility/`. Delete stale files within each destination and keep no `.git` metadata:
 
 ```sh
 rsync -a --delete --exclude .git \
@@ -65,19 +65,20 @@ rsync -a --delete --exclude .git \
 
 rsync -a --delete --exclude .git \
   "$tmp_dir/typescript-sdk/" \
-  "$HOME/ghq/github.com/maguroid/skills/mcp-typescript/references/repos/typescript-sdk-v2/"
+  "$HOME/ghq/github.com/maguroid/skills/mcp-typescript/references/repos/typescript-sdk/"
 
 rsync -a --delete --exclude .git \
   "$tmp_dir/typescript-sdk-v1/" \
-  "$HOME/ghq/github.com/maguroid/skills/mcp-typescript/references/repos/typescript-sdk-v1/"
+  "$HOME/ghq/github.com/maguroid/skills/mcp-typescript/references/compatibility/typescript-sdk-v1/"
 ```
 
-Remove obsolete unversioned snapshot directories only after confirming the v1/v2 destinations exist. Do not leave old SDK APIs at a path that looks current.
+After confirming both destinations exist, remove obsolete generation-named current directories such as `references/repos/typescript-sdk-v2/` and obsolete v1 copies under `references/repos/`. Do not leave compatibility APIs at a path that looks current.
 
 ## Update Skill References
 
 - Keep `SKILL.md` concise and imperative. Point detailed facts to references.
 - Make v2 the new-project default and v1 explicitly compatibility-only.
+- Keep the current v2 snapshot at `references/repos/typescript-sdk/` and v1 under `references/compatibility/`.
 - State that v2 does not automatically select the 2026 wire: document `versionNegotiation`, `createMcpHandler`, and `serveStdio` as deliberate choices.
 - Preserve the server-side HTTP framework selection/confirmation rule.
 - Update `mcp-field-guide.md`, `typescript-sdk-patterns.md`, and `repository-map.md` together so package paths and protocol semantics agree.
@@ -106,8 +107,9 @@ UV_CACHE_DIR="$skill_uv_cache" uv run --no-project --with pyyaml python \
 Then verify references and stale assumptions:
 
 ```sh
-find references/repos -name .git -type d
-rg -n "2025-11-25|typescript-sdk/|@modelcontextprotocol/sdk/" SKILL.md references/*.md
+find references -name .git -type d
+rg -n "2025-11-25|typescript-sdk-v2|references/repos/typescript-sdk-v1" SKILL.md references/*.md
+rg -n "@modelcontextprotocol/sdk/" SKILL.md references/*.md
 rg -n "TO[D]O|\\[TO[D]O" SKILL.md references/*.md agents/openai.yaml
 git diff --check
 ```

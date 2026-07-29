@@ -20,14 +20,14 @@ SDK generation and wire era are independent. A v2 client remains on the legacy `
 - `references/update-procedure.md`: stable-tag refresh procedure.
 - `references/repository-map.md`: exact tags, commits, and source navigation.
 - `references/repos/modelcontextprotocol/`: specification at stable `2026-07-28`.
-- `references/repos/typescript-sdk-v2/`: SDK v2.0.0 release snapshot.
-- `references/repos/typescript-sdk-v1/`: SDK v1.30.0 compatibility snapshot.
+- `references/repos/typescript-sdk/`: current SDK v2.0.0 release snapshot.
+
+Only for an existing v1 project, use `references/compatibility/typescript-sdk-v1/`.
 
 Search the matching snapshot before relying on a summary:
 
 ```sh
-rg -n "createMcpHandler|serveStdio|versionNegotiation|registerTool|StreamableHTTP|server/discover" references/repos/typescript-sdk-v2
-rg -n "McpServer|StdioServerTransport|StreamableHTTP|registerTool" references/repos/typescript-sdk-v1
+rg -n "createMcpHandler|serveStdio|versionNegotiation|registerTool|StreamableHTTP|server/discover" references/repos/typescript-sdk
 rg -n "server/discover|subscriptions/listen|input_required|resultType|stateless|Mcp-Session-Id" references/repos/modelcontextprotocol/docs/specification/2026-07-28
 ```
 
