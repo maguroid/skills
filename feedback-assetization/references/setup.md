@@ -36,8 +36,7 @@ codex ならグローバル AGENTS.md 等）へ、次の趣旨のルール追記
    配布する共通アダプタを1本登録する。アダプタは `~/.agents/hubs.md` の
    **作業フォルダスコープを優先し、該当しなければ既定ハブ**を選び、同期後の
    `agent-memory/MEMORY.md` をコンテキストへ注入する。共通アダプタが無い環境では、
-   このスキル同梱の `scripts/memory_inject.sh`（索引注入）と
-   `scripts/dreaming_check.sh`（dreaming 候補の検知）を直接登録して代替できる。
+   このスキル同梱の `scripts/memory_inject.sh`（索引注入）を直接登録して代替できる。
    Claude Code は `~/.claude/settings.json` の `hooks.SessionStart`、codex は
    `~/.codex/hooks.json` の `hooks.SessionStart` が設定先。共通アダプタと
    `memory_inject.sh` を同時登録して索引を二重注入しない。フック設定は dotfiles 配布機構へ
