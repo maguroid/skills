@@ -4,3 +4,25 @@ e6ee5e40cc73138eb3792976813771e637bd73f3:mcp-typescript/references/repos/modelco
 e6ee5e40cc73138eb3792976813771e637bd73f3:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/tutorials/security/authorization.mdx:generic-api-key:646
 # vendored MCP docs sample JWT; localhost tutorial token, not a live secret
 e6ee5e40cc73138eb3792976813771e637bd73f3:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/tutorials/security/authorization.mdx:jwt:252
+
+# Historical vendored MCP docs samples from the 2026-07-28 reference refresh; files were later removed
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/2024-11-05/tutorials/security/authorization.mdx:generic-api-key:111
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/2024-11-05/tutorials/security/authorization.mdx:generic-api-key:646
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/2024-11-05/tutorials/security/authorization.mdx:jwt:252
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/2025-03-26/tutorials/security/authorization.mdx:generic-api-key:111
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/2025-03-26/tutorials/security/authorization.mdx:generic-api-key:646
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/2025-03-26/tutorials/security/authorization.mdx:jwt:252
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/2025-11-25/tutorials/security/authorization.mdx:generic-api-key:111
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/2025-11-25/tutorials/security/authorization.mdx:generic-api-key:646
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/2025-11-25/tutorials/security/authorization.mdx:jwt:252
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/2026-07-28/tutorials/security/authorization.mdx:generic-api-key:111
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/2026-07-28/tutorials/security/authorization.mdx:jwt:252
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/draft/tutorials/security/authorization.mdx:generic-api-key:111
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/modelcontextprotocol/docs/docs/draft/tutorials/security/authorization.mdx:jwt:252
+
+# Historical vendored TypeScript SDK test fixtures from the same reference refresh; files were later removed
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/typescript-sdk-v2/packages/client/test/client/crossAppAccess.test.ts:generic-api-key:52
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/typescript-sdk-v2/packages/client/test/client/crossAppAccess.test.ts:generic-api-key:63
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/typescript-sdk-v2/packages/client/test/client/crossAppAccess.test.ts:generic-api-key:359
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/typescript-sdk-v2/test/e2e/scenarios/hosting-entry-auth.test.ts:generic-api-key:238
+415c309e8f3f4fb1ce08eabdcb2e1ac356644451:mcp-typescript/references/repos/typescript-sdk-v2/test/e2e/requirements.ts:generic-api-key:2805
