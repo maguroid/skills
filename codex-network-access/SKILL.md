@@ -1,6 +1,6 @@
 ---
 name: codex-network-access
-description: Use when the user asks to allow Codex sandbox network access, permit requests to a specific domain, add a domain to the Codex CLI network allowlist, or configure ~/.codex/config.toml network_proxy domains.
+description: "Configure Codex sandbox network access or domain allowlists when the user requests network permission changes."
 ---
 
 # Codex Network Access

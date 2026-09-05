@@ -1,6 +1,6 @@
 ---
 name: zsh-config-locations
-description: Know this user's zsh configuration layout. Use when Codex needs to locate, explain, or update zsh-related files in this environment, especially the fact that zsh configuration now lives under $HOME/.zsh.d instead of the traditional $HOME/.zshrc path.
+description: "Locate, explain, or edit this user’s zsh configuration under ~/.zsh.d."
 ---
 
 # Zsh Config Locations

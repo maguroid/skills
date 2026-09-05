@@ -1,6 +1,6 @@
 ---
 name: mcp-typescript
-description: Build, modify, debug, review, migrate, or update local knowledge for Model Context Protocol (MCP) servers and clients in TypeScript. Use whenever an agent implements an MCP server, client, transport, tool, resource, prompt, capability, authentication flow, SDK integration, MCP behavior test, or refreshes MCP specification or TypeScript SDK information. Use this TypeScript-only skill by default for MCP server construction.
+description: "Build, debug, review, or update MCP servers and clients in TypeScript, including SDK integration and specification references."
 ---
 
 # MCP TypeScript
@@ -31,7 +31,7 @@ For an existing v1 project, treat its installed package and types as authoritati
 
 ## HTTP Framework Selection
 
-Before implementing server-side HTTP, present viable framework/runtime options and tradeoffs, recommend one, and obtain confirmation. Treat an explicit choice in the current turn as confirmation.
+Before implementing server-side HTTP, present viable framework/runtime options and tradeoffs, recommend one, and obtain confirmation. An existing project framework or an explicit choice already made in this session satisfies this requirement; ask only when a new framework decision remains unresolved.
 
 ## Refreshing MCP Information
 

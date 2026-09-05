@@ -1,6 +1,6 @@
 ---
 name: note
-description: Manual-only workflow for turning a user note such as `/note Always respond in Japanese` or `/note -g Prefer concise replies` into durable, agent-neutral instructions in project or global AGENTS.md, CLAUDE.md, or similar coding-agent instruction files. Use only when explicitly invoked as `/note` or by name; do not trigger implicitly for ordinary preference statements.
+description: "Persist a note into agent instructions only when explicitly invoked as /note or by skill name; ordinary preference statements do not trigger it."
 ---
 
 # Agent Note Instructions

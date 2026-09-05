@@ -1,6 +1,6 @@
 ---
 name: article-authoring
-description: Zennへ公開する技術記事・テックブログ記事を企画、調査、検証、構成、執筆、編集、レビュー、公開準備するときに使う。個人名義と企業・組織のZenn Publication記事を問わず、すべての記事本文・画像・記事設計・編集判断の正本を`$HOME/ghq/github.com/maguroid/posts`で管理する。単なるWeb記事の閲覧・要約・クリップには使わない。
+description: "Zenn向け技術記事の企画・調査・執筆・編集・公開準備。個人・Publication共通。単なるWeb閲覧・要約・クリップは対象外。"
 ---
 
 # Article Authoring
@@ -16,7 +16,9 @@ description: Zennへ公開する技術記事・テックブログ記事を企画
 ## 手順
 
 1. 掲載主体とZenn上の個人アカウント／Publicationを既存記録から特定する。複数候補が残る場合だけ一問確認する。
-2. `posts/AGENTS.md`、`posts/README.md`、`posts/editorial/principles.md`、`posts/editorial/README.md`の順に読む。
+2. `posts/AGENTS.md` と対象記事の編集方針を読む。企画・構成・文体の判断には
+   `posts/editorial/principles.md`、配置やプレビュー手順が不明な場合には各 `README.md` を参照する。
+   誤字修正などで無関係な資料を一式読み直さない。
 3. 対象記事の`editorial/<slug>.md`やIssueがあれば読み、続きから作業する。
 4. 必要な場合だけ、掲載主体や検証対象のリポジトリからブランド、機密、実装、一次情報を確認する。
 5. ユーザーのフィードバックや再検証で判断が変わったら、記事別メモへ`before → after + 理由`を記録する。

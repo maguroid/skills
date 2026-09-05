@@ -1,6 +1,6 @@
 ---
 name: zeno-configuration
-description: Configure and verify Zeno snippets for this user's zsh environment. Use when Codex needs to add, update, explain, or debug zeno.zsh snippet expansion, keyword mappings such as gsw to git switch, Zeno config files, or Zeno key bindings in this environment.
+description: "Configure or debug Zeno snippet expansion and key bindings in this user’s zsh environment."
 ---
 
 # Zeno Configuration
