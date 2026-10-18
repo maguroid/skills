@@ -8,7 +8,7 @@ The bootstrap script clones any missing canonical repo with its SSH GitHub URL. 
 
 After clone-and-pull, the script reconciles discovery symlinks: create missing symlinks, repair broken symlinks whose intended target is the canonical skill directory, leave already-correct links untouched, and report real directories or foreign symlinks as conflicts without overwriting them. Agent-neutral repos link each top-level `SKILL.md` directory into both `$HOME/.agents/skills` and `$HOME/.claude/skills`. Claude Code-only repos link into `$HOME/.claude/skills` only. Codex-only repos link into `$HOME/.codex/skills` only. Workspace-only repos create no home-global links. Matching links in a discovery directory outside the repo's scheme are reported as strays and left untouched.
 
-The user's private dotfiles repo may distribute `$HOME/.agents/skills-repos.local.md` and a chezmoi `run_after` hook script that wraps `bootstrap.sh` (currently `run_after_20-bootstrap-global-skills.sh`: it first pulls the `maguroid/skills` repo itself when clean so a stale `bootstrap.sh` is never used, then runs it on every apply with a 1-hour throttle; `HARNESS_SYNC_FORCE=1` forces a run). With that setup, `chezmoi init --apply` / `chezmoi update` installs the private registry, clones `maguroid/skills` if needed, and runs `bootstrap.sh` automatically. Keep private registry contents in the private dotfiles repo only, never in this public skill repo.
+Run `bootstrap.sh` manually on each machine. Since 2026-10-18 nothing runs it automatically (the dotfiles apply chain and cross-machine auto-sync were retired). The private registry `$HOME/.agents/skills-repos.local.md` is maintained per machine; keep its contents out of this public skill repo.
 
 
 ## Sync Workflow
@@ -20,18 +20,12 @@ bash "$HOME/ghq/github.com/maguroid/skills/bootstrap.sh"
 ```
 
 - It covers every registered repo (the three public repos plus registry entries), pulling each existing clean repo `--ff-only` and reconciling discovery symlinks per each repo's symlink scheme, with the semantics described in New Machine Bootstrap. Dirty working trees are warned and skipped — never stash or discard the user's changes; resolve them deliberately and re-run. Pull failures (e.g. a WIP branch with no upstream) are warning-only.
-- It also rides the dotfiles apply chain: `chezmoi update` runs it via a `run_after` hook (1-hour throttle; `HARNESS_SYNC_FORCE=1` forces), and that hook pulls the `maguroid/skills` repo itself first so the script is never stale. So a plain `chezmoi update` usually syncs skills as a side effect — see the `harness-sync` skill for that chain.
 - Read its Summary and report it: `pulled` / `pull skipped (dirty)` / `pull failures`, plus newly linked, repaired, already-correct, and conflicts skipped. Never silently overwrite a conflict; do not touch discovery entries that resolve to other repositories.
 
 After a sync, validate a sample of the synced skills through the discovery directory selected by each repo's scheme using the active agent's validation workflow.
 
-Workspace-local projections are a separate, non-global layer. After the workspace repositories are present, run `global-skill-workflow/scripts/reconcile_workspace_skills.sh`; the configured chezmoi hub-sync chain normally does this automatically. Do not link these skills into `$HOME/.agents/skills`, because workspace-specific names such as `tasks` or `daily-task` can legitimately have different behavior in different roots.
+Workspace-local projections are a separate, non-global layer. After the workspace repositories are present, run `global-skill-workflow/scripts/reconcile_workspace_skills.sh`. Do not link these skills into `$HOME/.agents/skills`, because workspace-specific names such as `tasks` or `daily-task` can legitimately have different behavior in different roots.
 
-## Auto Push (Claude Code Stop hook)
+## Commit and Push
 
-The push direction is automated for the **three built-in public repos only** (`maguroid/skills`, `maguroid/cc-skills`, `maguroid/codex-skills`), mirroring the hub-repo auto-sync model (introduced 2026-07-06):
-
-- The user's global Claude Code settings run `global-skill-workflow/scripts/auto_sync.sh` on every Stop. When a target repo is dirty on `main`, it commits everything (`chore: スキル自動同期 (日時)`) and pushes; unpushed commits from earlier blocked pushes are also retried. Clean repos are a no-op.
-- Registry repos (`$HOME/.agents/skills-repos.local.md`) are **deliberately excluded**: they are team-shared repos or ordinary projects that contain more than skills, so whole-repo auto-commit is wrong there — commit those manually.
-- The secret gate is each repo's lefthook + secretlint pre-push hook (all built-in repos are wired). A blocked push leaves the commit local and surfaces a `systemMessage`; repair per the recovery flow in `harness-sync` (same semantics as the dotfiles repo).
-- Consequence for agents: after editing a skill in a built-in repo you may still commit deliberately with a descriptive message (preferred) — the hook only sweeps up what's left. On non-`main` branches the hook does nothing.
+There is no auto-push hook (the Stop-hook auto-sync was retired on 2026-10-18). After editing a skill, commit deliberately with a descriptive message and push following the active approval policy. Each repo's lefthook + secretlint pre-push hook remains the secret gate; a blocked push leaves the commit local — remove the secret, amend or soft-reset the local commit, and push again.
